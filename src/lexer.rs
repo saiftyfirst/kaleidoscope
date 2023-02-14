@@ -1,5 +1,4 @@
 use std::io::Result;
-use crate::lexer::Token::TokIdentifier;
 
 #[repr(i8)]
 #[derive(PartialEq, Debug, Clone)]
@@ -20,7 +19,7 @@ impl<'a> From<&'a str> for Token {
             "def" => Token::TokDef,
             "extern" => Token::TokExtern,
             comment if comment.starts_with("#") => Token::TokComment(comment.to_string()),
-            non_empty if !non_empty.is_empty() => TokIdentifier(non_empty.to_string()),
+            non_empty if !non_empty.is_empty() => Token::TokIdentifier(non_empty.to_string()),
             _ => Token::TokEof
         }
     }
