@@ -1,5 +1,5 @@
-use std::collections::HashMap;
-use lazy_static::lazy_static;
+use std::io::Result;
+use crate::lexer::Token::TokIdentifier;
 
 #[repr(i8)]
 #[derive(PartialEq, Debug, Clone)]
@@ -14,74 +14,95 @@ pub enum Token {
     TokNumber(f64)
 }
 
-lazy_static! {
-    static ref KEYWORD_TO_TOKEN: HashMap<&'static str, Token> = {
-        let mut keyword_to_token_map = HashMap::new();
-        keyword_to_token_map.insert("def", Token::TokDef);
-        keyword_to_token_map.insert("extern", Token::TokExtern);
-        keyword_to_token_map
-    };
-}
-
-fn parse_str_to_word(parsed_str: String) -> Token {
-    if KEYWORD_TO_TOKEN.contains_key(parsed_str.as_str()) {
-        return KEYWORD_TO_TOKEN.get(parsed_str.as_str()).unwrap().clone();
+impl<'a> From<&'a str> for Token {
+    fn from(token_str: &'a str) -> Token {
+        match token_str {
+            "def" => Token::TokDef,
+            "extern" => Token::TokExtern,
+            comment if comment.starts_with("#") => Token::TokComment(comment.to_string()),
+            non_empty if !non_empty.is_empty() => TokIdentifier(non_empty.to_string()),
+            _ => Token::TokEof
+        }
     }
-    return Token::TokIdentifier(parsed_str);
 }
 
-fn parse_str_to_number(parsed_str: String) -> Token {
-    return Token::TokNumber(parsed_str.parse::<f64>().unwrap());
+impl From<f64> for Token {
+    fn from(value: f64) -> Token {
+        Token::TokNumber(value)
+    }
 }
 
-fn parse_str_to_comment(parsed_str: String) -> Token {
-    return Token::TokComment(parsed_str);
+fn read_while<F>(data: &str, pred: F) -> Result<(&str, usize)>
+    where F: Fn(char) -> bool {
+    let mut read_count = 0;
+    for elem in data.chars() {
+        if !pred(elem) {
+            break;
+        }
+        read_count += 1;
+    }
+    Ok((&data[..read_count], read_count))
 }
 
-pub fn parse_next_token(snippet_ref: &str) -> (Token, &str) {
-    let trimmed_snippet_ref = snippet_ref.trim_start();
-    let mut parsed_token: Token = Token::TokEof;
+pub struct Tokenizer<'a> {
+    current_index: usize,
+    current_data: &'a str
+}
 
-    if trimmed_snippet_ref.len() < 1 {
-        return (parsed_token, trimmed_snippet_ref)
+impl<'a> Tokenizer<'a> {
+    pub fn new(src: &str) -> Tokenizer {
+        Tokenizer {
+            current_index: 0,
+            current_data: src
+        }
     }
 
-    let mut snippet_chars = trimmed_snippet_ref.chars();
-    let first_char = snippet_chars.nth(0).unwrap();
-    let mut parsed_str: String = String::from(first_char);
+    pub fn parse_next_token(&mut self) -> Token {
+        self.trim_start();
 
-    let mut consume_until_end_char = |consume_space: bool| {
-        while let Some(current_char) = snippet_chars.next() {
-            match current_char {
-                '\r' | '\n' => {
-                    break;
-                }
-                ' ' => {
-                    if !consume_space { break; }
-                    parsed_str.push(current_char);
-                }
-                _ => {
-                    parsed_str.push(current_char);
-                }
+        if self.current_data.len() ==  0 {
+            return Token::TokEof;
+        }
+
+        let first_char = self.current_data.chars().nth(0).unwrap();
+        match first_char {
+            'a'..='z' | 'A'..='Z' => {
+                Token::from(self.read_token_str(Option::None))
+            }
+            '0'..='9' => {
+                let value = self.read_token_str(Option::None).parse::<f64>().unwrap();
+                Token::from(value)
+            }
+            '#' => {
+                Token::from(self.read_token_str(Option::Some(true)))
+            }
+            _ => {
+                Token::TokEof
             }
         }
-    };
-
-    match first_char {
-        'a'..='z' | 'A'..='Z' => {
-            consume_until_end_char(false);
-            parsed_token = parse_str_to_word(parsed_str);
-        }
-        '0'..='9' => {
-            consume_until_end_char(false);
-            parsed_token = parse_str_to_number(parsed_str);
-        }
-        '#' => {
-            consume_until_end_char(true);
-            parsed_token = parse_str_to_comment(parsed_str);
-        }
-        _ => {}
     }
 
-    (parsed_token, snippet_chars.as_str())
+    fn trim_start(&mut self) {
+        let (_, read_count) = read_while(self.current_data, |c| { c.is_whitespace() }).unwrap();
+        self.slide_data_window(read_count);
+    }
+
+    fn read_token_str(&mut self, consume_space_char: Option<bool>) -> &str {
+        let consume_space_char = consume_space_char.unwrap_or(false);
+
+        let (token_str, read_count) = if !consume_space_char {
+            read_while(self.current_data, |c| { !c.is_whitespace() })
+        } else {
+            read_while(self.current_data, |c| { !((c == '\r') || (c == '\n')) })
+        }.unwrap();
+
+        self.slide_data_window(read_count);
+
+        token_str
+    }
+
+    fn slide_data_window(&mut self, read_count: usize) {
+        self.current_index += read_count;
+        self.current_data = &self.current_data[read_count..];
+    }
 }

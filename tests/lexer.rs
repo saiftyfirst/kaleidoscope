@@ -2,38 +2,23 @@
 mod tests {
     use kaleidoscope::lexer::*;
 
-    #[test]
-    fn can_parse_eof() {
-        let snippet = String::from("    ");
-        let _snip_tok = parse_next_token(snippet.as_str()).0;
-        matches!(Token::TokEof, _snip_tok);
+    macro_rules! single_tokenize_test {
+        ($name:ident, $src:expr => $should_be:expr) => {
+            #[test]
+            fn $name() {
+                let mut tokenizer = Tokenizer::new($src);
+
+                let got = tokenizer.parse_next_token();
+
+                assert_eq!(got, $should_be);
+            }
+        }
     }
 
-    #[test]
-    fn can_parse_keyword_def() {
-        let snippet = String::from("  def ");
-        let _snip_tok = parse_next_token(snippet.as_str()).0;
-        assert_eq!(Token::TokDef, _snip_tok);
-    }
-
-    #[test]
-    fn can_parse_keyword_extern() {
-        let snippet = String::from("  extern ");
-        let _snip_tok = parse_next_token(snippet.as_str()).0;
-        assert_eq!(Token::TokExtern, _snip_tok);
-    }
-
-    #[test]
-    fn can_parse_strings() {
-        let snippet = String::from("  defo ");
-        let _snip_tok = parse_next_token(snippet.as_str()).0;
-        assert_eq!(Token::TokIdentifier("defo".to_string()), _snip_tok);
-    }
-
-    #[test]
-    fn can_parse_comment() {
-        let snippet = String::from("  # defo herlmeer weg ");
-        let _snip_tok = parse_next_token(snippet.as_str()).0;
-        assert_eq!(Token::TokComment("# defo herlmeer weg ".to_string()), _snip_tok);
-    }
+    single_tokenize_test!(can_tokenize_eof, " " => Token::TokEof);
+    single_tokenize_test!(can_tokenize_float, "   1.6   " => Token::TokNumber(1.6));
+    single_tokenize_test!(can_tokenize_def, "def " => Token::TokDef);
+    single_tokenize_test!(can_tokenize_extern, "extern " => Token::TokExtern);
+    single_tokenize_test!(can_tokenize_strings, "saiftyfirst " => Token::TokIdentifier(String::from("saiftyfirst")));
+    single_tokenize_test!(can_tokenize_comments, "# defo herlmeer weg  \n" => Token::TokComment(String::from("# defo herlmeer weg  ")));
 }
