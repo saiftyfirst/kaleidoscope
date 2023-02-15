@@ -2,7 +2,7 @@
 mod tests {
     use kaleidoscope::lexer::*;
 
-    macro_rules! single_tokenize_test {
+    macro_rules! single_tokenization_test {
         ($name:ident, $src:expr => $should_be:expr) => {
             #[test]
             fn $name() {
@@ -15,10 +15,11 @@ mod tests {
         }
     }
 
-    single_tokenize_test!(can_tokenize_eof, " " => Token::TokEof);
-    single_tokenize_test!(can_tokenize_float, "   1.6   " => Token::TokNumber(1.6));
-    single_tokenize_test!(can_tokenize_def, "def " => Token::TokDef);
-    single_tokenize_test!(can_tokenize_extern, "extern " => Token::TokExtern);
-    single_tokenize_test!(can_tokenize_strings, "saiftyfirst " => Token::TokIdentifier(String::from("saiftyfirst")));
-    single_tokenize_test!(can_tokenize_comments, "# defo herlmeer weg  \n" => Token::TokComment(String::from("# defo herlmeer weg  ")));
+    single_tokenization_test!(can_tokenize_empty, "" => Token::TokEof);
+    single_tokenization_test!(can_tokenize_eof, " " => Token::TokEof);
+    single_tokenization_test!(can_tokenize_float, "   1.6   " => Token::TokNumber(1.6));
+    single_tokenization_test!(can_tokenize_def, "  def " => Token::TokDef);
+    single_tokenization_test!(can_tokenize_extern, "  extern " => Token::TokExtern);
+    single_tokenization_test!(can_tokenize_strings, "  saiftyfirst " => Token::TokIdentifier(String::from("saiftyfirst")));
+    single_tokenization_test!(can_tokenize_comments, "  # defo herlmeer weg  \n" => Token::TokComment(String::from("# defo herlmeer weg  ")));
 }
