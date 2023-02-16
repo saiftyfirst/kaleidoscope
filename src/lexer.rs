@@ -9,6 +9,7 @@ pub enum Token {
     TokDef,
     TokExtern,
 
+    TokPrimary(char),
     TokIdentifier(String),
     TokNumber(f64)
 }
@@ -28,6 +29,12 @@ impl<'a> From<&'a str> for Token {
 impl From<f64> for Token {
     fn from(value: f64) -> Token {
         Token::TokNumber(value)
+    }
+}
+
+impl From<char> for Token {
+    fn from(value: char) -> Token {
+        Token::TokPrimary(value)
     }
 }
 
@@ -76,7 +83,7 @@ impl<'a> Tokenizer<'a> {
                 Token::from(self.read_token_str(Option::Some(true)))
             }
             _ => {
-                Token::TokEof
+                Token::from(self.read_primary_token())
             }
         }
     }
@@ -98,6 +105,12 @@ impl<'a> Tokenizer<'a> {
         self.slide_data_window(read_count);
 
         token_str
+    }
+
+    fn read_primary_token(&mut self) -> char {
+        let primary_tok_char = self.current_data.chars().nth(0).unwrap();
+        self.slide_data_window(1);
+        primary_tok_char
     }
 
     fn slide_data_window(&mut self, read_count: usize) {
