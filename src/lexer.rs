@@ -1,6 +1,12 @@
 use std::fmt::Formatter;
 use std::io::Result;
 
+const PRIMARY_CHARS: &'static [char; 8] = &['(', ')', '+', '-', '*', '/', '>', '<'];
+fn is_primary_char(c: char) -> bool {
+    PRIMARY_CHARS.contains(&c)
+}
+
+
 #[repr(i8)]
 #[derive(PartialEq, Debug, Clone)]
 pub enum Token {
@@ -112,9 +118,9 @@ impl<'a> Lexer<'a> {
         let consume_space_char = consume_space_char.unwrap_or(false);
 
         let (token_str, read_count) = if !consume_space_char {
-            read_while(self.current_data, |c| { !c.is_whitespace() })
+            read_while(self.current_data, |c| { !(c.is_whitespace() || is_primary_char(c)) })
         } else {
-            read_while(self.current_data, |c| { !((c == '\r') || (c == '\n')) })
+            read_while(self.current_data, |c| { !((c == '\r') || (c == '\n') || is_primary_char(c)) })
         }.unwrap();
 
         self.slide_data_window(read_count);
