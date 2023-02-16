@@ -1,7 +1,6 @@
 use crate::lexer::*;
 use crate::token::*;
 
-
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
     curr_token: Token
@@ -22,20 +21,24 @@ impl<'a> Parser<'a> {
             match self.curr_token {
                 Token::TokEof => break,
                 Token::TokDef => {
-                    // HandleDef
+                    self.handle_def();
                     break;
                 },
                 Token::TokExtern => {
-                    // HandleExtern
+                    self.handle_extern();
                     break;
                 },
                 _ => {
-                    // Handle top level expression
+                    self.handle_expression();
                     break;
                 }
             }
         }
     }
 
+    fn handle_def(&mut self) {}
 
+    fn handle_extern(&mut self) {}
+
+    fn handle_expression(&mut self) {}
 }
