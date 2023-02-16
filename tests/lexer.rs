@@ -6,7 +6,7 @@ mod tests {
         ($name:ident, $src:expr => $should_be:expr) => {
             #[test]
             fn $name() {
-                let mut tokenizer = Tokenizer::new($src);
+                let mut tokenizer = Lexer::new($src);
 
                 let got = tokenizer.parse_next_token();
 

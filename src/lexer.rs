@@ -1,3 +1,4 @@
+use std::fmt::Formatter;
 use std::io::Result;
 
 #[repr(i8)]
@@ -12,6 +13,20 @@ pub enum Token {
     TokPrimary(char),
     TokIdentifier(String),
     TokNumber(f64)
+}
+
+impl std::fmt::Display for Token {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Token::TokEof => write!(f, "<eof>"),
+            Token::TokComment(val) => write!(f, "<comment> {}", val),
+            Token::TokDef => write!(f, "<def>"),
+            Token::TokExtern => write!(f, "<extern>"),
+            Token::TokPrimary(val) => write!(f, "<primary> {}", val),
+            Token::TokIdentifier(val) => write!(f, "<identifier> {}", val),
+            Token::TokNumber(val) => write!(f, "<number> {}", val)
+        }
+    }
 }
 
 impl<'a> From<&'a str> for Token {
@@ -50,14 +65,14 @@ fn read_while<F>(data: &str, pred: F) -> Result<(&str, usize)>
     Ok((&data[..read_count], read_count))
 }
 
-pub struct Tokenizer<'a> {
+pub struct Lexer<'a> {
     current_index: usize,
     current_data: &'a str
 }
 
-impl<'a> Tokenizer<'a> {
-    pub fn new(src: &str) -> Tokenizer {
-        Tokenizer {
+impl<'a> Lexer<'a> {
+    pub fn new(src: &str) -> Lexer {
+        Lexer {
             current_index: 0,
             current_data: src
         }
