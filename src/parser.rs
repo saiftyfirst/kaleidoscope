@@ -1,4 +1,6 @@
 use crate::lexer::*;
+use crate::token::*;
+
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
@@ -18,12 +20,22 @@ impl<'a> Parser<'a> {
         self.curr_token = self.lexer.parse_next_token();
         loop {
             match self.curr_token {
-                Token::TokEof => { return; },
+                Token::TokEof => break,
+                Token::TokDef => {
+                    // HandleDef
+                    break;
+                },
+                Token::TokExtern => {
+                    // HandleExtern
+                    break;
+                },
                 _ => {
-                    println!("{}", self.curr_token);
-                    self.curr_token = self.lexer.parse_next_token();
+                    // Handle top level expression
+                    break;
                 }
             }
         }
     }
+
+
 }
