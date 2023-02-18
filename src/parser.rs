@@ -41,24 +41,22 @@ impl<'a> Parser<'a> {
         self.curr_token = self.lexer.parse_next_token()
     }
 
-    fn parse_extern(&mut self) -> Option<PrototypeAst> {
+    fn parse_extern(&mut self) -> Result<PrototypeAst, Err> {
         if let Token::TokExtern = self.curr_token {
             self.get_next_token();
             self.parse_prototype()
         } else {
-          // Throw ?
-            None
+            Err("Attempted to parse non-extern AST as extern.")
         }
     }
 
-    fn parse_prototype(&mut self) -> Option<PrototypeAst> {
-
+    fn parse_prototype(&mut self) -> Result<PrototypeAst, Err> {
         if let Token::TokIdentifier(fn_ident) = &self.curr_token {
             let mut ast = PrototypeAst::from(fn_ident);
 
             self.get_next_token();
             if self.curr_token != Token::TokPrimary('(') {
-                // throw ?
+                Err("Expected prototype AST to begin with '('.")
             }
             self.get_next_token();
 
@@ -68,12 +66,11 @@ impl<'a> Parser<'a> {
             }
 
             if self.curr_token != Token::TokPrimary(')') {
-                // throw ?
+                Err("Expected prototype AST to end with ')'.")
             }
-            return Some(ast);
+            Ok(ast)
         } else {
-            // throw ?
-            None
+            Err("Attempted to parse non-prototype AST as prototype.")
         }
     }
 }
