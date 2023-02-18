@@ -1,3 +1,4 @@
+use crate::ast::PrototypeAst;
 use crate::lexer::*;
 use crate::token::*;
 
@@ -16,29 +17,63 @@ impl<'a> Parser<'a> {
     }
 
     pub fn build_ast(&mut self) {
-        self.curr_token = self.lexer.parse_next_token();
+        self.get_next_token();
         loop {
             match self.curr_token {
                 Token::TokEof => break,
                 Token::TokDef => {
-                    self.handle_def();
+                    // self.handle_def();
                     break;
                 },
                 Token::TokExtern => {
-                    self.handle_extern();
+                    self.parse_extern();
                     break;
                 },
                 _ => {
-                    self.handle_expression();
+                    // self.handle_expression();
                     break;
                 }
             }
         }
     }
 
-    fn handle_def(&mut self) {}
+    fn get_next_token(&mut self) {
+        self.curr_token = self.lexer.parse_next_token()
+    }
 
-    fn handle_extern(&mut self) {}
+    fn parse_extern(&mut self) -> Option<PrototypeAst> {
+        if let Token::TokExtern = self.curr_token {
+            self.get_next_token();
+            self.parse_prototype()
+        } else {
+          // Throw ?
+            None
+        }
+    }
 
-    fn handle_expression(&mut self) {}
+    fn parse_prototype(&mut self) -> Option<PrototypeAst> {
+
+        if let Token::TokIdentifier(fn_ident) = &self.curr_token {
+            let mut ast = PrototypeAst::from(fn_ident);
+
+            self.get_next_token();
+            if self.curr_token != Token::TokPrimary('(') {
+                // throw ?
+            }
+            self.get_next_token();
+
+            while let Token::TokIdentifier(arg_ident) = &self.curr_token {
+                ast.add_arg(arg_ident);
+                self.get_next_token();
+            }
+
+            if self.curr_token != Token::TokPrimary(')') {
+                // throw ?
+            }
+            return Some(ast);
+        } else {
+            // throw ?
+            None
+        }
+    }
 }
