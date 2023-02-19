@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
     use kaleidoscope::lexer::*;
+    use kaleidoscope::token::*;
 
     macro_rules! single_tokenization_test {
         ($name:ident, $src:expr => $should_be:expr) => {
@@ -24,7 +25,8 @@ mod tests {
     single_tokenization_test!(can_tokenize_op_div, " / " => Token::TokPrimary('/'));
     single_tokenization_test!(can_tokenize_op_le, " < " => Token::TokPrimary('<'));
     single_tokenization_test!(can_tokenize_op_ge, " > " => Token::TokPrimary('>'));
-    single_tokenization_test!(can_tokenize_eof, " " => Token::TokEof);
+    single_tokenization_test!(can_tokenize_op_comma, " , " => Token::TokPrimary(','));
+    single_tokenization_test!(can_tokenize_eof, "  " => Token::TokEof);
     single_tokenization_test!(can_tokenize_float, "   1.6   " => Token::TokNumber(1.6));
     single_tokenization_test!(can_tokenize_def, " def " => Token::TokDef);
     single_tokenization_test!(can_tokenize_extern, " extern " => Token::TokExtern);

@@ -1,6 +1,6 @@
 use std::fmt::Formatter;
 
-const PRIMARY_CHARS: &'static [char; 8] = &['(', ')', '+', '-', '*', '/', '>', '<'];
+const PRIMARY_CHARS: &'static [char; 9] = &['(', ')', '+', '-', '*', '/', '>', '<', ','];
 pub fn is_primary_char(c: char) -> bool {
     PRIMARY_CHARS.contains(&c)
 }
