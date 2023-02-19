@@ -1,3 +1,5 @@
+extern crate core;
+
 pub mod lexer;
 pub mod parser;
 pub mod token;

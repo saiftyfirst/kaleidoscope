@@ -10,11 +10,6 @@ pub struct PrototypeAst {
     args: Vec<String>
 }
 
-pub struct FunctionAst {
-    proto: PrototypeAst,
-    body: GenericAst
-}
-
 impl From<&String> for PrototypeAst {
     fn from(value: &String) -> Self {
         PrototypeAst {
@@ -28,4 +23,9 @@ impl PrototypeAst {
     pub fn add_arg(&mut self, arg: &String) {
         self.args.push(arg.to_string());
     }
+}
+
+pub struct FunctionAst {
+    proto: PrototypeAst,
+    body: GenericAst
 }

@@ -1,6 +1,19 @@
+use core::fmt;
+use std::fmt::Formatter;
 use crate::ast::PrototypeAst;
 use crate::lexer::*;
 use crate::token::*;
+
+#[derive(Debug)]
+struct ParseError(String);
+
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParseError(s) => write!(f, "Custom error: {}", s)
+        }
+    }
+}
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
@@ -22,7 +35,7 @@ impl<'a> Parser<'a> {
             match self.curr_token {
                 Token::TokEof => break,
                 Token::TokDef => {
-                    // self.handle_def();
+                    // self.hand
                     break;
                 },
                 Token::TokExtern => {
@@ -41,22 +54,22 @@ impl<'a> Parser<'a> {
         self.curr_token = self.lexer.parse_next_token()
     }
 
-    fn parse_extern(&mut self) -> Result<PrototypeAst, Err> {
+    fn parse_extern(&mut self) -> Result<PrototypeAst, ParseError> {
         if let Token::TokExtern = self.curr_token {
             self.get_next_token();
             self.parse_prototype()
         } else {
-            Err("Attempted to parse non-extern AST as extern.")
+            Err(ParseError("Attempted to parse non-extern AST as extern.".to_string()))
         }
     }
 
-    fn parse_prototype(&mut self) -> Result<PrototypeAst, Err> {
+    fn parse_prototype(&mut self) -> Result<PrototypeAst, ParseError> {
         if let Token::TokIdentifier(fn_ident) = &self.curr_token {
             let mut ast = PrototypeAst::from(fn_ident);
 
             self.get_next_token();
             if self.curr_token != Token::TokPrimary('(') {
-                Err("Expected prototype AST to begin with '('.")
+                return Err(ParseError("Expected prototype AST to begin with '('.".to_string()));
             }
             self.get_next_token();
 
@@ -66,11 +79,11 @@ impl<'a> Parser<'a> {
             }
 
             if self.curr_token != Token::TokPrimary(')') {
-                Err("Expected prototype AST to end with ')'.")
+                return Err(ParseError("Expected prototype AST to end with ')'.".to_string()));
             }
             Ok(ast)
         } else {
-            Err("Attempted to parse non-prototype AST as prototype.")
+            return Err(ParseError("Attempted to parse non-prototype AST as prototype.".to_string()));
         }
     }
 }
