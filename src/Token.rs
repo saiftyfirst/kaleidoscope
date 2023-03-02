@@ -1,8 +1,23 @@
 use std::fmt::Formatter;
 
-const PRIMARY_CHARS: &'static [char; 9] = &['(', ')', '+', '-', '*', '/', '>', '<', ','];
-pub fn is_primary_char(c: char) -> bool {
-    PRIMARY_CHARS.contains(&c)
+const SYMBOL_NON_OP_CHARS: &'static [char; 3] = &['(', ')', ','];
+const SYMBOL_OP_CHARS: &'static [char; 6] = &['+', '-', '*', '/', '>', '<'];
+pub fn is_symbol_char(c: char) -> bool {
+    SYMBOL_NON_OP_CHARS.contains(&c) || SYMBOL_OP_CHARS.contains(&c)
+}
+fn get_op_precedence(op: &char) -> i8 {
+    match op {
+        '<' | '>' => 10,
+        '+' | '-' => 20,
+        '*' | '/' => 30,
+        _ => -1
+    }
+}
+pub fn get_token_precedence(tok: &Token) -> i8 {
+    if let Token::TokSymbol(ch) = tok {
+        return get_op_precedence(ch);
+    }
+    -1
 }
 
 #[repr(i8)]
@@ -14,7 +29,7 @@ pub enum Token {
     TokDef,
     TokExtern,
 
-    TokPrimary(char),
+    TokSymbol(char),
     TokIdentifier(String),
     TokNumber(f64)
 }
@@ -26,7 +41,7 @@ impl std::fmt::Display for Token {
             Token::TokComment(val) => write!(f, "<comment> {}", val),
             Token::TokDef => write!(f, "<def>"),
             Token::TokExtern => write!(f, "<extern>"),
-            Token::TokPrimary(val) => write!(f, "<primary> {}", val),
+            Token::TokSymbol(val) => write!(f, "<primary> {}", val),
             Token::TokIdentifier(val) => write!(f, "<identifier> {}", val),
             Token::TokNumber(val) => write!(f, "<number> {}", val)
         }
@@ -53,6 +68,6 @@ impl From<f64> for Token {
 
 impl From<char> for Token {
     fn from(value: char) -> Token {
-        Token::TokPrimary(value)
+        Token::TokSymbol(value)
     }
 }

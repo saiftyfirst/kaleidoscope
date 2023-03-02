@@ -1,31 +1,47 @@
+use std::fmt::Formatter;
+
+#[repr(i8)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum GenericAst {
     NumberExprAst { number: f64 },
     VariableExprAst { name: String },
     BinaryExprAst { op: char, lhs: Box<GenericAst>, rhs: Box<GenericAst> },
-    CallExprAst { callee: String, args: Vec<String> },
+    CallExprAst { callee: String, args: Vec<GenericAst> },
+    PrototypeAst { name: String, args: Vec<String> },
+    FunctionAst { proto: Box<GenericAst>, body: Box<GenericAst> }
 }
 
-pub struct PrototypeAst {
-    name: String,
-    args: Vec<String>
-}
-
-impl From<&String> for PrototypeAst {
-    fn from(value: &String) -> Self {
-        PrototypeAst {
-            name: value.to_string(),
-            args: vec![]
+impl std::fmt::Display for GenericAst {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GenericAst::NumberExprAst { number } => write!(f, "{}", number),
+            GenericAst::VariableExprAst { name } => write!(f, "{}", name),
+            GenericAst::BinaryExprAst { op, lhs, rhs } => write!(f, "({} {} {})", lhs, op, rhs),
+            GenericAst::CallExprAst { callee, args } => {
+                write!(f, "{}(", callee)?;
+                for (i, arg) in args.iter().enumerate() {
+                    if i != 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", arg)?;
+                }
+                write!(f, ")")
+            },
+            GenericAst::PrototypeAst { name, args } => {
+                write!(f, "{}(", name)?;
+                for (i, arg) in args.iter().enumerate() {
+                    if i != 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", arg)?;
+                }
+                write!(f, ")")
+            },
+            GenericAst::FunctionAst { proto, body } => {
+                write!(f, "{}\n", proto)?;
+                write!(f, "{}\n", body)
+            }
         }
     }
-}
 
-impl PrototypeAst {
-    pub fn add_arg(&mut self, arg: &String) {
-        self.args.push(arg.to_string());
-    }
-}
-
-pub struct FunctionAst {
-    proto: PrototypeAst,
-    body: GenericAst
 }
