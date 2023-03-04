@@ -15,7 +15,6 @@ fn read_while<F>(data: &str, pred: F) -> Result<(&str, usize)>
 }
 
 pub struct Lexer<'a> {
-    current_index: usize,
     current_data: &'a str,
     current_token: Token
 }
@@ -23,7 +22,6 @@ pub struct Lexer<'a> {
 impl<'a> Lexer<'a> {
     pub fn new(src: &str) -> Lexer {
         let mut lexer = Lexer {
-            current_index: 0,
             current_data: src,
             current_token: Token::TokEof
         };
@@ -94,7 +92,6 @@ impl<'a> Lexer<'a> {
     }
 
     fn slide_data_window(&mut self, read_count: usize) {
-        self.current_index += read_count;
         self.current_data = &self.current_data[read_count..];
     }
 }
