@@ -11,7 +11,4 @@ A run through https://llvm.org/docs/tutorial/MyFirstLanguageFrontend in Rust.
 
 ### Refactoring:
 - Reorganise parse
-- Remove unnecessary clones
-- Check usage of unwraps
-- Use str instead of String
 - Do Token specific checks as impl for Token (e.g. isParenthesis)

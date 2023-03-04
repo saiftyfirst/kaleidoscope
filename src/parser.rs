@@ -6,15 +6,13 @@ use crate::lexer::*;
 use crate::token::*;
 
 pub struct Parser<'a> {
-    lexer: Lexer<'a>, // TODO: Fix #2 get lexer as input
-    curr_token: Token
+    lexer: Lexer<'a>
 }
 
 impl<'a> Parser<'a> {
     pub fn new(src: &str) -> Parser {
         Parser {
-            lexer: Lexer::new(src),
-            curr_token: Token::TokEof
+            lexer: Lexer::new(src)
         }
     }
 
@@ -29,13 +27,8 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn pop_token(&mut self) {
-        self.curr_token = self.lexer.pop()
-    }
-
     fn parse_def_ast(&mut self) -> Result<GenericAst, ParseError> {
-        self.pop_token();
-        if let Token::TokDef = self.curr_token {
+        if let Token::TokDef = self.lexer.pop() {
             let prototype_ast = self.parse_prototype()?;
             let expression_ast = self.parse_expression()?;
             Ok(GenericAst::FunctionAst{ proto: Box::from(prototype_ast), body: Box::from(expression_ast) })
@@ -45,8 +38,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_extern_ast(&mut self) -> Result<GenericAst, ParseError> {
-        self.pop_token(); // pop extern
-        if let Token::TokExtern = self.curr_token {
+        if let Token::TokExtern = self.lexer.pop() {
             self.parse_prototype()
         } else {
             Err(ParseError("Attempted to parse non-extern AST as extern.".to_string()))
@@ -54,28 +46,25 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_prototype(&mut self) -> Result<GenericAst, ParseError> {
-        self.pop_token();
-        if let Token::TokIdentifier(fn_ident) = self.curr_token.clone() { // TODO: String causes issues with moving/cloning/<Not sure yet>
+        if let Token::TokIdentifier(fn_ident) = self.lexer.pop() { // TODO: String causes issues with moving/cloning/<Not sure yet>
             let mut args = Vec::new();
 
-            self.pop_token();
-            if self.curr_token != Token::TokSymbol('(') {
+            if self.lexer.pop() != Token::TokSymbol('(') {
                 return Err(ParseError("Expected prototype AST to begin with '('.".to_string()));
             }
 
-            while let Token::TokIdentifier(arg_ident) = self.lexer.peek().clone() {
-                self.pop_token();
-                args.push(arg_ident.to_string()); // TODO: clone due to String?
-
-                if let Token::TokSymbol(',') = self.lexer.peek().clone() {
-                    self.pop_token(); // pop the comma
-                } else {
-                    break;
+            while let Token::TokIdentifier(_) = self.lexer.peek() {
+                if let Token::TokIdentifier(arg_ident) = self.lexer.pop() {
+                    args.push(arg_ident);
+                    if let Token::TokSymbol(',') = self.lexer.peek().clone() {
+                        self.lexer.pop(); // pop the comma
+                    } else {
+                        break;
+                    }
                 }
             }
 
-            self.pop_token();
-            if self.curr_token != Token::TokSymbol(')') {
+            if self.lexer.pop() != Token::TokSymbol(')') {
                 return Err(ParseError("Expected prototype AST to end with ')'.".to_string()));
             }
             Ok(GenericAst::PrototypeAst { name: fn_ident.to_string(), args })
@@ -94,7 +83,8 @@ impl<'a> Parser<'a> {
             if let Token::TokSymbol(op) = self.lexer.peek().clone() { // next operator
                 let precedence = get_token_precedence(&self.lexer.peek());
                 if precedence >= min_precedence {
-                    self.pop_token(); // pop operator
+                    // self.pop_token(); // pop operator
+                    let current = self.lexer.pop();
                     let mut rhs = self.parse_primary_expression()?;
                     loop {
                         if let Token::TokSymbol(_peek_op) = self.lexer.peek().clone() {
@@ -131,53 +121,47 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_number_expression(&mut self) -> Result<GenericAst, ParseError> {
-        self.pop_token();
-        if let Token::TokNumber(val) = self.curr_token { // duplication
+        if let Token::TokNumber(val) = self.lexer.pop() {
             return Ok(GenericAst::NumberExprAst { number: val });
         }
         Err(ParseError("Attempted to parse non-number EXPR as number.".to_string()))
     }
 
     fn parse_variable_or_call_expression(&mut self) -> Result<GenericAst, ParseError> {
-        self.pop_token();
-        let identifier; // costly ?
-        if let Token::TokIdentifier(val) = self.curr_token.clone() { // duplication
-            identifier = val;
+        if let Token::TokIdentifier(identifier) = self.lexer.pop() {
+            if Token::TokSymbol('(') != *self.lexer.peek() {
+                return Ok(VariableExprAst { name: identifier });
+            }
+
+            self.lexer.pop(); // pop '('
+
+            let mut args = Vec::new();
+            if Token::TokSymbol(')')  != *self.lexer.peek() {
+                loop {
+                    args.push(self.parse_expression()?);
+
+                    if Token::TokSymbol(')') == *self.lexer.peek(){
+                        self.lexer.pop(); // pop ')'
+                        break;
+                    }
+
+                    if Token::TokSymbol(',') == *self.lexer.peek() {
+                        self.lexer.pop(); // pop the comma
+                    } else {
+                        return Err(ParseError("Attempted to parse badly formatted function call (expected ',').".to_string()));
+                    }
+                }
+            }
+            Ok(CallExprAst {callee: identifier.to_string(), args })
         } else {
             return Err(ParseError("Attempted to incorrectly parse EXPR as variable or call expression.".to_string()));
         }
-
-        if Token::TokSymbol('(') != *self.lexer.peek() {
-            return Ok(VariableExprAst { name: identifier.to_string() });
-        }
-        self.pop_token(); // pop '('
-
-        let mut args = Vec::new();
-        if  Token::TokSymbol(')')  != *self.lexer.peek() {
-            loop {
-                args.push(self.parse_expression()?);
-
-                if Token::TokSymbol(')') == *self.lexer.peek(){
-                    self.pop_token();
-                    break;
-                }
-
-                if Token::TokSymbol(',') == *self.lexer.peek() {
-                    self.pop_token(); // pop the comma
-                } else {
-                    return Err(ParseError("Attempted to parse badly formatted function call (expected ',').".to_string()));
-                }
-            }
-        }
-        Ok(CallExprAst {callee: identifier.to_string(), args })
     }
 
     fn parse_parent_expression(&mut self) -> Result<GenericAst, ParseError> {
-        self.pop_token(); // pop (
-        // TODO CHECK pop?
+        self.lexer.pop(); // pop (
         let res = self.parse_expression();
-        self.pop_token(); // pop )
-        // TODO CHECK pop?
+        self.lexer.pop(); // pop )
         return res;
     }
 }
