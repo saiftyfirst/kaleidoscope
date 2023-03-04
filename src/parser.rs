@@ -5,6 +5,17 @@ use crate::ast::GenericAst::{BinaryExprAst, CallExprAst, VariableExprAst};
 use crate::lexer::*;
 use crate::token::*;
 
+#[derive(Debug)]
+pub struct ParseError(String);
+
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            ParseError(s) => write!(f, "Custom error: {}", s)
+        }
+    }
+}
+
 pub struct Parser<'a> {
     lexer: Lexer<'a>
 }
@@ -27,17 +38,17 @@ impl<'a> Parser<'a> {
 
     fn parse_def_ast(&mut self) -> Result<GenericAst, ParseError> {
         self.lexer.pop(); // pop def
-        let prototype_ast = self.parse_prototype()?;
-        let expression_ast = self.parse_expression()?;
-        Ok(GenericAst::FunctionAst{ proto: Box::from(prototype_ast), body: Box::from(expression_ast) })
+        Ok(GenericAst::FunctionAst{ proto: Box::from(self.parse_prototype()?), body: Box::from(self.parse_expression()?) })
     }
 
     fn parse_extern_ast(&mut self) -> Result<GenericAst, ParseError> {
-        if let Token::TokExtern = self.lexer.pop() {
-            self.parse_prototype()
-        } else {
-            Err(ParseError("Attempted to parse non-extern AST as extern.".to_string()))
-        }
+        self.lexer.pop(); // pop extern
+        self.parse_prototype()
+    }
+
+    fn parse_expression(&mut self) -> Result<GenericAst, ParseError> {
+        let lhs = self.parse_primary_expression()?;
+        self.parse_op_and_rhs(lhs, 0)
     }
 
     fn parse_prototype(&mut self) -> Result<GenericAst, ParseError> {
@@ -68,39 +79,26 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_expression(&mut self) -> Result<GenericAst, ParseError> {
-        let lhs = self.parse_primary_expression()?;
-        self.parse_op_and_rhs(lhs, 0)
-    }
-
     fn parse_op_and_rhs(&mut self, mut lhs: GenericAst, min_precedence: i8) -> Result<GenericAst, ParseError> {
-        loop {
-            if self.lexer.peek().is_tok_symbol() { // next operator
+            while self.lexer.peek().is_tok_symbol() { // next operator
                 let precedence = get_token_precedence(&self.lexer.peek());
                 if precedence >= min_precedence {
                     if let Token::TokSymbol(op) = self.lexer.pop() {
                         let mut rhs = self.parse_primary_expression()?;
-                        loop {
-                            if self.lexer.peek().is_tok_symbol() {
-                                let peek_precedence = get_token_precedence(&self.lexer.peek());
-                                if peek_precedence > precedence {
-                                    rhs = self.parse_op_and_rhs(rhs, precedence+1)?;
-                                } else {
-                                    break;
-                                }
-                                // equal condition ?
+                        while self.lexer.peek().is_tok_symbol() {
+                            let peek_precedence = get_token_precedence(&self.lexer.peek());
+                            if peek_precedence > precedence {
+                                rhs = self.parse_op_and_rhs(rhs, precedence+1)?;
                             } else {
                                 break;
                             }
-                        }
+                            // equal condition ?
+                            }
                         lhs = BinaryExprAst { op, lhs: Box::new(lhs), rhs: Box::new(rhs) };
                     }
                 } else {
                     break;
                 }
-            } else {
-                break;
-            }
         }
         Ok(lhs)
     }
@@ -157,16 +155,5 @@ impl<'a> Parser<'a> {
         let res = self.parse_expression();
         self.lexer.pop(); // pop )
         return res;
-    }
-}
-
-#[derive(Debug)]
-pub struct ParseError(String);
-
-impl fmt::Display for ParseError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            ParseError(s) => write!(f, "Custom error: {}", s)
-        }
     }
 }
