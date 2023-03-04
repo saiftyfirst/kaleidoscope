@@ -9,7 +9,7 @@ mod tests {
             fn $name() {
                 let mut tokenizer = Lexer::new($src);
 
-                let got = tokenizer.parse_next_token();
+                let got = tokenizer.pop();
 
                 assert_eq!(got, $should_be);
             }
@@ -17,19 +17,20 @@ mod tests {
     }
 
     single_tokenization_test!(can_tokenize_empty, "" => Token::TokEof);
-    single_tokenization_test!(can_tokenize_open_parenthesis, " ( " => Token::TokPrimary('('));
-    single_tokenization_test!(can_tokenize_close_parenthesis, " ) " => Token::TokPrimary(')'));
-    single_tokenization_test!(can_tokenize_op_add, " + " => Token::TokPrimary('+'));
-    single_tokenization_test!(can_tokenize_op_sub, " - " => Token::TokPrimary('-'));
-    single_tokenization_test!(can_tokenize_op_mul, " * " => Token::TokPrimary('*'));
-    single_tokenization_test!(can_tokenize_op_div, " / " => Token::TokPrimary('/'));
-    single_tokenization_test!(can_tokenize_op_le, " < " => Token::TokPrimary('<'));
-    single_tokenization_test!(can_tokenize_op_ge, " > " => Token::TokPrimary('>'));
-    single_tokenization_test!(can_tokenize_op_comma, " , " => Token::TokPrimary(','));
+    single_tokenization_test!(can_tokenize_open_parenthesis, " ( " => Token::TokSymbol('('));
+    single_tokenization_test!(can_tokenize_close_parenthesis, " ) " => Token::TokSymbol(')'));
+    single_tokenization_test!(can_tokenize_op_add, " + " => Token::TokSymbol('+'));
+    single_tokenization_test!(can_tokenize_op_sub, " - " => Token::TokSymbol('-'));
+    single_tokenization_test!(can_tokenize_op_mul, " * " => Token::TokSymbol('*'));
+    single_tokenization_test!(can_tokenize_op_div, " / " => Token::TokSymbol('/'));
+    single_tokenization_test!(can_tokenize_op_le, " < " => Token::TokSymbol('<'));
+    single_tokenization_test!(can_tokenize_op_ge, " > " => Token::TokSymbol('>'));
+    single_tokenization_test!(can_tokenize_op_comma, " , " => Token::TokSymbol(','));
     single_tokenization_test!(can_tokenize_eof, "  " => Token::TokEof);
     single_tokenization_test!(can_tokenize_float, "   1.6   " => Token::TokNumber(1.6));
     single_tokenization_test!(can_tokenize_def, " def " => Token::TokDef);
     single_tokenization_test!(can_tokenize_extern, " extern " => Token::TokExtern);
     single_tokenization_test!(can_tokenize_strings, " saiftyfirst " => Token::TokIdentifier(String::from("saiftyfirst")));
+    single_tokenization_test!(can_tokenize_atan2, " atan2 " => Token::TokIdentifier(String::from("atan2")));
     single_tokenization_test!(can_tokenize_comments, " # defo herlmeer weg\n" => Token::TokComment(String::from("# defo herlmeer weg")));
 }
