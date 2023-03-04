@@ -1,4 +1,3 @@
-use std::fs::read;
 use std::io::Result;
 
 use crate::token::*;

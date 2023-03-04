@@ -23,7 +23,6 @@ pub struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     pub fn new(src: &str) -> Parser {
-        println!("input src: \n{}", src);
         Parser {
             lexer: Lexer::new(src),
             curr_token: Token::TokEof
@@ -102,61 +101,46 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expression(&mut self) -> Result<GenericAst, ParseError> {
-        let mut expression_stack: Vec<(GenericAst, i8)> = Vec::new();
-        let mut operation_stack: Vec<char> = Vec::new();
+        let lhs = self.parse_primary_expression()?;
+        self.parse_op_and_rhs(lhs, 0)
+    }
 
-        let lhs_expression = self.parse_primary_expression()?; // first operand
+    fn parse_op_and_rhs(&mut self, mut lhs: GenericAst, min_precedence: i8) -> Result<GenericAst, ParseError> {
+        loop {
+            if let Token::TokSymbol(op) = self.peek_token().clone() { // next operator
+                let precedence = get_token_precedence(self.peek_token());
+                if precedence >= min_precedence {
+                    self.pop_token(); // pop operator
+                    let mut rhs = self.parse_primary_expression()?;
+                    loop {
+                        if let Token::TokSymbol(_peek_op) = self.peek_token().clone() {
+                            let peek_precedence = get_token_precedence(self.peek_token());
+                            if peek_precedence > precedence {
+                                rhs = self.parse_op_and_rhs(rhs, precedence+1)?;
+                            } else {
+                                break;
+                            }
+                            // equal condition ?
+                        } else {
+                            break;
+                        }
+                    }
 
-        if let Token::TokSymbol(op) = self.peek_token().clone() { // next operator
-            self.pop_token(); // operator
-            let next_precedence = get_token_precedence(&self.curr_token );
-            operation_stack.push(op);
-            expression_stack.push((lhs_expression, next_precedence));
-        } else {
-            return Ok(lhs_expression);
-        }
-
-        while let Some(lhs) = expression_stack.last() {
-            // next operand
-            let rhs_expression = self.parse_primary_expression()?;
-
-            if let Token::TokSymbol(op) = self.peek_token().clone() {
-                let next_precedence = get_token_precedence(self.peek_token());
-                if (next_precedence < 0) { // not an op
-                    // TODO : Fix#3 Merge with branch in outer IF
-                    expression_stack.push((rhs_expression, 0));
+                    lhs = BinaryExprAst { op, lhs: Box::new(lhs), rhs: Box::new(rhs) };
+                } else {
                     break;
                 }
-
-                self.pop_token(); // pop operator
-                let next_precedence = get_token_precedence(&self.curr_token );
-                if next_precedence <= lhs.1 {
-                    let (lhs_expression, precedence) = expression_stack.pop().unwrap();
-                    let prev_op = operation_stack.pop().unwrap();
-                    let new_lhs_expression = BinaryExprAst { op: prev_op, lhs: Box::new(lhs_expression), rhs: Box::new(rhs_expression) };
-                    expression_stack.push((new_lhs_expression, precedence));
-                    operation_stack.push(op);
-                } else {
-                    operation_stack.push(op);
-                    expression_stack.push((rhs_expression, next_precedence));
-                }
             } else {
-                expression_stack.push((rhs_expression, 0));
                 break;
             }
         }
-
-        let full_expr = expression_stack[0].0.clone();
-        let zipped_stack = operation_stack.iter().zip(expression_stack.iter().skip(1));
-        Ok(zipped_stack.fold(full_expr, |full, (op, expr)| {
-            BinaryExprAst { op: *op, lhs: Box::new(full), rhs: Box::new(expr.0.clone())}
-        }))
+        Ok(lhs)
     }
 
     fn parse_primary_expression(&mut self) -> Result<GenericAst, ParseError> {
         match self.peek_token() {
-            Token::TokNumber(val) => self.parse_number_expression(),
-            Token::TokIdentifier(val) => self.parse_variable_or_call_expression(),
+            Token::TokNumber(_val) => self.parse_number_expression(),
+            Token::TokIdentifier(_val) => self.parse_variable_or_call_expression(),
             Token::TokSymbol('(') => self.parse_parent_expression(),
             _ => Err(ParseError("Attempted to parse non-primary AST as primary.".to_string()))
         }
@@ -172,7 +156,7 @@ impl<'a> Parser<'a> {
 
     fn parse_variable_or_call_expression(&mut self) -> Result<GenericAst, ParseError> {
         self.pop_token();
-        let mut identifier = "".to_string(); // costly ?
+        let identifier; // costly ?
         if let Token::TokIdentifier(val) = self.curr_token.clone() { // duplication
             identifier = val;
         } else {
