@@ -9,7 +9,7 @@ use crate::token::*;
 pub struct ParseError(String);
 
 impl fmt::Display for ParseError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             ParseError(s) => write!(f, "Custom error: {}", s)
         }
@@ -41,7 +41,7 @@ impl<'a> Parser<'a> {
     }
 
     // TODO : curr_token overriden by both peek and get -> this will get confusing
-    fn peek_token(&mut self) -> &Token {
+    fn peek_token(&self) -> &Token {
         self.lexer.peek()
     }
 
@@ -81,7 +81,7 @@ impl<'a> Parser<'a> {
 
             while let Token::TokIdentifier(arg_ident) = self.peek_token().clone() {
                 self.pop_token();
-                args.push(arg_ident.clone()); // TODO: clone due to String?
+                args.push(arg_ident.to_string()); // TODO: clone due to String?
 
                 if let Token::TokSymbol(',') = self.peek_token().clone() {
                     self.pop_token(); // pop the comma
@@ -94,7 +94,7 @@ impl<'a> Parser<'a> {
             if self.curr_token != Token::TokSymbol(')') {
                 return Err(ParseError("Expected prototype AST to end with ')'.".to_string()));
             }
-            Ok(GenericAst::PrototypeAst { name: fn_ident.clone(), args })
+            Ok(GenericAst::PrototypeAst { name: fn_ident.to_string(), args })
         } else {
             return Err(ParseError("Attempted to parse non-prototype AST as prototype.".to_string()));
         }
@@ -108,13 +108,13 @@ impl<'a> Parser<'a> {
     fn parse_op_and_rhs(&mut self, mut lhs: GenericAst, min_precedence: i8) -> Result<GenericAst, ParseError> {
         loop {
             if let Token::TokSymbol(op) = self.peek_token().clone() { // next operator
-                let precedence = get_token_precedence(self.peek_token());
+                let precedence = get_token_precedence(&self.peek_token());
                 if precedence >= min_precedence {
                     self.pop_token(); // pop operator
                     let mut rhs = self.parse_primary_expression()?;
                     loop {
                         if let Token::TokSymbol(_peek_op) = self.peek_token().clone() {
-                            let peek_precedence = get_token_precedence(self.peek_token());
+                            let peek_precedence = get_token_precedence(&self.peek_token());
                             if peek_precedence > precedence {
                                 rhs = self.parse_op_and_rhs(rhs, precedence+1)?;
                             } else {
@@ -164,7 +164,7 @@ impl<'a> Parser<'a> {
         }
 
         if Token::TokSymbol('(') != *self.peek_token() {
-            return Ok(VariableExprAst { name: identifier });
+            return Ok(VariableExprAst { name: identifier.to_string() });
         }
         self.pop_token(); // pop '('
 
@@ -185,7 +185,7 @@ impl<'a> Parser<'a> {
                 }
             }
         }
-        Ok(CallExprAst {callee: identifier, args })
+        Ok(CallExprAst {callee: identifier.to_string(), args })
     }
 
     fn parse_parent_expression(&mut self) -> Result<GenericAst, ParseError> {

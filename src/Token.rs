@@ -48,8 +48,8 @@ impl std::fmt::Display for Token {
     }
 }
 
-impl<'a> From<&'a str> for Token {
-    fn from(token_str: &'a str) -> Token {
+impl From<&str> for Token {
+    fn from(token_str: &str) -> Token {
         match token_str {
             "def" => Token::TokDef,
             "extern" => Token::TokExtern,
