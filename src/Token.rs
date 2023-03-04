@@ -34,6 +34,12 @@ pub enum Token {
     TokNumber(f64)
 }
 
+impl Default for Token {
+    fn default() -> Token {
+        Token::TokDef
+    }
+}
+
 impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {

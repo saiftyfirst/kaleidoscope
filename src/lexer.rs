@@ -1,5 +1,3 @@
-use std::mem;
-
 use crate::token::*;
 
 pub struct Lexer<'a> {
@@ -22,7 +20,7 @@ impl<'a> Lexer<'a> {
     }
 
     pub fn pop(&mut self) -> Token {
-        let popped = mem::replace(&mut self.token_cache, Token::TokEof);
+        let popped = std::mem::take(&mut self.token_cache);
         (self.token_cache, self.data) = Self::parse_and_slide(self.data);
         popped
     }

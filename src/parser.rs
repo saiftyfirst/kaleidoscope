@@ -5,17 +5,6 @@ use crate::ast::GenericAst::{BinaryExprAst, CallExprAst, VariableExprAst};
 use crate::lexer::*;
 use crate::token::*;
 
-#[derive(Debug)]
-pub struct ParseError(String);
-
-impl fmt::Display for ParseError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            ParseError(s) => write!(f, "Custom error: {}", s)
-        }
-    }
-}
-
 pub struct Parser<'a> {
     lexer: Lexer<'a>, // TODO: Fix #2 get lexer as input
     curr_token: Token
@@ -31,18 +20,13 @@ impl<'a> Parser<'a> {
 
     pub fn build_next_ast(&mut self) -> Result<GenericAst, ParseError> {
         loop {
-            return match self.peek_token() {
+            return match self.lexer.peek() {
                 Token::TokEof => Err(ParseError("EOF".to_string())),
                 Token::TokDef => self.parse_def_ast(),
                 Token::TokExtern => self.parse_extern_ast(),
                 _ => self.parse_expression()
             }
         }
-    }
-
-    // TODO : curr_token overriden by both peek and get -> this will get confusing
-    fn peek_token(&self) -> &Token {
-        self.lexer.peek()
     }
 
     fn pop_token(&mut self) {
@@ -79,11 +63,11 @@ impl<'a> Parser<'a> {
                 return Err(ParseError("Expected prototype AST to begin with '('.".to_string()));
             }
 
-            while let Token::TokIdentifier(arg_ident) = self.peek_token().clone() {
+            while let Token::TokIdentifier(arg_ident) = self.lexer.peek().clone() {
                 self.pop_token();
                 args.push(arg_ident.to_string()); // TODO: clone due to String?
 
-                if let Token::TokSymbol(',') = self.peek_token().clone() {
+                if let Token::TokSymbol(',') = self.lexer.peek().clone() {
                     self.pop_token(); // pop the comma
                 } else {
                     break;
@@ -107,14 +91,14 @@ impl<'a> Parser<'a> {
 
     fn parse_op_and_rhs(&mut self, mut lhs: GenericAst, min_precedence: i8) -> Result<GenericAst, ParseError> {
         loop {
-            if let Token::TokSymbol(op) = self.peek_token().clone() { // next operator
-                let precedence = get_token_precedence(&self.peek_token());
+            if let Token::TokSymbol(op) = self.lexer.peek().clone() { // next operator
+                let precedence = get_token_precedence(&self.lexer.peek());
                 if precedence >= min_precedence {
                     self.pop_token(); // pop operator
                     let mut rhs = self.parse_primary_expression()?;
                     loop {
-                        if let Token::TokSymbol(_peek_op) = self.peek_token().clone() {
-                            let peek_precedence = get_token_precedence(&self.peek_token());
+                        if let Token::TokSymbol(_peek_op) = self.lexer.peek().clone() {
+                            let peek_precedence = get_token_precedence(&self.lexer.peek());
                             if peek_precedence > precedence {
                                 rhs = self.parse_op_and_rhs(rhs, precedence+1)?;
                             } else {
@@ -138,7 +122,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_primary_expression(&mut self) -> Result<GenericAst, ParseError> {
-        match self.peek_token() {
+        match self.lexer.peek() {
             Token::TokNumber(_val) => self.parse_number_expression(),
             Token::TokIdentifier(_val) => self.parse_variable_or_call_expression(),
             Token::TokSymbol('(') => self.parse_parent_expression(),
@@ -163,22 +147,22 @@ impl<'a> Parser<'a> {
             return Err(ParseError("Attempted to incorrectly parse EXPR as variable or call expression.".to_string()));
         }
 
-        if Token::TokSymbol('(') != *self.peek_token() {
+        if Token::TokSymbol('(') != *self.lexer.peek() {
             return Ok(VariableExprAst { name: identifier.to_string() });
         }
         self.pop_token(); // pop '('
 
         let mut args = Vec::new();
-        if  Token::TokSymbol(')')  != *self.peek_token() {
+        if  Token::TokSymbol(')')  != *self.lexer.peek() {
             loop {
                 args.push(self.parse_expression()?);
 
-                if Token::TokSymbol(')') == *self.peek_token(){
+                if Token::TokSymbol(')') == *self.lexer.peek(){
                     self.pop_token();
                     break;
                 }
 
-                if Token::TokSymbol(',') == *self.peek_token() {
+                if Token::TokSymbol(',') == *self.lexer.peek() {
                     self.pop_token(); // pop the comma
                 } else {
                     return Err(ParseError("Attempted to parse badly formatted function call (expected ',').".to_string()));
@@ -195,5 +179,16 @@ impl<'a> Parser<'a> {
         self.pop_token(); // pop )
         // TODO CHECK pop?
         return res;
+    }
+}
+
+#[derive(Debug)]
+pub struct ParseError(String);
+
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            ParseError(s) => write!(f, "Custom error: {}", s)
+        }
     }
 }
