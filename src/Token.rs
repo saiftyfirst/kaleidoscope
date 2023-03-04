@@ -77,3 +77,12 @@ impl From<char> for Token {
         Token::TokSymbol(value)
     }
 }
+
+impl Token {
+    pub fn is_tok_symbol(&self) -> bool {
+        match self {
+            Token::TokSymbol(_) => true,
+            _ => false
+        }
+    }
+}

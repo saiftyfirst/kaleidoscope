@@ -17,24 +17,19 @@ impl<'a> Parser<'a> {
     }
 
     pub fn build_next_ast(&mut self) -> Result<GenericAst, ParseError> {
-        loop {
             return match self.lexer.peek() {
                 Token::TokEof => Err(ParseError("EOF".to_string())),
                 Token::TokDef => self.parse_def_ast(),
                 Token::TokExtern => self.parse_extern_ast(),
                 _ => self.parse_expression()
             }
-        }
     }
 
     fn parse_def_ast(&mut self) -> Result<GenericAst, ParseError> {
-        if let Token::TokDef = self.lexer.pop() {
-            let prototype_ast = self.parse_prototype()?;
-            let expression_ast = self.parse_expression()?;
-            Ok(GenericAst::FunctionAst{ proto: Box::from(prototype_ast), body: Box::from(expression_ast) })
-        } else {
-            Err(ParseError("Attempted to parse non-def AST as def.".to_string()))
-        }
+        self.lexer.pop(); // pop def
+        let prototype_ast = self.parse_prototype()?;
+        let expression_ast = self.parse_expression()?;
+        Ok(GenericAst::FunctionAst{ proto: Box::from(prototype_ast), body: Box::from(expression_ast) })
     }
 
     fn parse_extern_ast(&mut self) -> Result<GenericAst, ParseError> {
@@ -46,7 +41,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_prototype(&mut self) -> Result<GenericAst, ParseError> {
-        if let Token::TokIdentifier(fn_ident) = self.lexer.pop() { // TODO: String causes issues with moving/cloning/<Not sure yet>
+        if let Token::TokIdentifier(fn_ident) = self.lexer.pop() {
             let mut args = Vec::new();
 
             if self.lexer.pop() != Token::TokSymbol('(') {
@@ -56,7 +51,7 @@ impl<'a> Parser<'a> {
             while let Token::TokIdentifier(_) = self.lexer.peek() {
                 if let Token::TokIdentifier(arg_ident) = self.lexer.pop() {
                     args.push(arg_ident);
-                    if let Token::TokSymbol(',') = self.lexer.peek().clone() {
+                    if let Token::TokSymbol(',') = self.lexer.peek() {
                         self.lexer.pop(); // pop the comma
                     } else {
                         break;
@@ -80,27 +75,26 @@ impl<'a> Parser<'a> {
 
     fn parse_op_and_rhs(&mut self, mut lhs: GenericAst, min_precedence: i8) -> Result<GenericAst, ParseError> {
         loop {
-            if let Token::TokSymbol(op) = self.lexer.peek().clone() { // next operator
+            if self.lexer.peek().is_tok_symbol() { // next operator
                 let precedence = get_token_precedence(&self.lexer.peek());
                 if precedence >= min_precedence {
-                    // self.pop_token(); // pop operator
-                    let current = self.lexer.pop();
-                    let mut rhs = self.parse_primary_expression()?;
-                    loop {
-                        if let Token::TokSymbol(_peek_op) = self.lexer.peek().clone() {
-                            let peek_precedence = get_token_precedence(&self.lexer.peek());
-                            if peek_precedence > precedence {
-                                rhs = self.parse_op_and_rhs(rhs, precedence+1)?;
+                    if let Token::TokSymbol(op) = self.lexer.pop() {
+                        let mut rhs = self.parse_primary_expression()?;
+                        loop {
+                            if self.lexer.peek().is_tok_symbol() {
+                                let peek_precedence = get_token_precedence(&self.lexer.peek());
+                                if peek_precedence > precedence {
+                                    rhs = self.parse_op_and_rhs(rhs, precedence+1)?;
+                                } else {
+                                    break;
+                                }
+                                // equal condition ?
                             } else {
                                 break;
                             }
-                            // equal condition ?
-                        } else {
-                            break;
                         }
+                        lhs = BinaryExprAst { op, lhs: Box::new(lhs), rhs: Box::new(rhs) };
                     }
-
-                    lhs = BinaryExprAst { op, lhs: Box::new(lhs), rhs: Box::new(rhs) };
                 } else {
                     break;
                 }

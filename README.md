@@ -12,3 +12,4 @@ A run through https://llvm.org/docs/tutorial/MyFirstLanguageFrontend in Rust.
 ### Refactoring:
 - Reorganise parse
 - Do Token specific checks as impl for Token (e.g. isParenthesis)
+- Fix precedence stuff
