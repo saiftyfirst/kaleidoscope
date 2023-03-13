@@ -5,6 +5,8 @@ use crate::ast::GenericAst::{BinaryExprAst, CallExprAst, VariableExprAst};
 use crate::lexer::*;
 use crate::token::*;
 
+extern crate llvm_sys;
+
 #[derive(Debug)]
 pub struct ParseError(String);
 
