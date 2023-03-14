@@ -28,23 +28,11 @@ impl std::fmt::Display for GenericAst {
             GenericAst::BinaryExprAst { op, lhs, rhs } => write!(f, "({} {} {})", lhs, op, rhs),
             GenericAst::CallExprAst { callee, args } => {
                 write!(f, "{}(", callee)?;
-                for (i, arg) in args.iter().enumerate() {
-                    if i != 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{}", arg)?;
-                }
-                write!(f, ")")
+                display_args(args, f)
             },
             GenericAst::PrototypeAst { name, args } => {
                 write!(f, "{}(", name)?;
-                for (i, arg) in args.iter().enumerate() {
-                    if i != 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{}", arg)?;
-                }
-                write!(f, ")")
+                display_args(args, f)
             },
             GenericAst::FunctionAst { proto, body } => {
                 write!(f, "{}\n", proto)?;
@@ -52,4 +40,14 @@ impl std::fmt::Display for GenericAst {
             }
         }
     }
+}
+
+fn display_args<T: std::fmt::Display>(args: &[T], f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    for (i, arg) in args.iter().enumerate() {
+        if i != 0 {
+            write!(f, ", ")?;
+        }
+        write!(f, "{}", arg)?;
+    }
+    write!(f, ")")
 }
