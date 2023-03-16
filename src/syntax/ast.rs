@@ -22,6 +22,12 @@ impl GenericAst {
 
 impl std::fmt::Display for GenericAst {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+
+        let x = vec![1, 2, 3];
+        for (i, n) in x.iter().enumerate() {
+            println!("{} - {}", i, n);
+        }
+
         match self {
             GenericAst::NumberExprAst { number } => write!(f, "{}", number),
             GenericAst::VariableExprAst { name } => write!(f, "{}", name),
@@ -42,7 +48,12 @@ impl std::fmt::Display for GenericAst {
     }
 }
 
-fn display_args<T: std::fmt::Display>(args: &[T], f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+// Cannot use Container because Container type cannot be generics-ed with a trait that has iter()
+// no trait for iter()
+// the slice is working because it can consume the slice. Slice type has iter() method
+
+fn display_args<T: std::fmt::Display>(args: &[T], f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+{
     for (i, arg) in args.iter().enumerate() {
         if i != 0 {
             write!(f, ", ")?;

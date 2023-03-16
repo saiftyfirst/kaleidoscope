@@ -1,9 +1,9 @@
 use core::fmt;
 use std::fmt::Formatter;
-use crate::ast::*;
-use crate::ast::GenericAst::{BinaryExprAst, CallExprAst, VariableExprAst};
-use crate::lexer::*;
-use crate::token::*;
+
+use crate::syntax::ast::*;
+use crate::parser::lexer::*;
+use crate::parser::token::*;
 
 extern crate llvm_sys;
 
@@ -96,7 +96,7 @@ impl<'a> Parser<'a> {
                             }
                             // equal condition ?
                             }
-                        lhs = BinaryExprAst { op, lhs: Box::new(lhs), rhs: Box::new(rhs) };
+                        lhs = GenericAst::BinaryExprAst { op, lhs: Box::new(lhs), rhs: Box::new(rhs) };
                     }
                 } else {
                     break;
@@ -124,7 +124,7 @@ impl<'a> Parser<'a> {
     fn parse_variable_or_call_expression(&mut self) -> Result<GenericAst, ParseError> {
         if let Token::TokIdentifier(identifier) = self.pop_lexer() {
             if Token::TokSymbol('(') != *self.peek_lexer() {
-                return Ok(VariableExprAst { name: identifier });
+                return Ok(GenericAst::VariableExprAst { name: identifier });
             }
 
             self.pop_lexer(); // pop '('
@@ -146,7 +146,7 @@ impl<'a> Parser<'a> {
                     }
                 }
             }
-            Ok(CallExprAst {callee: identifier.to_string(), args })
+            Ok(GenericAst::CallExprAst {callee: identifier.to_string(), args })
         } else {
             return Err(ParseError("Attempted to incorrectly parse EXPR as variable or call expression.".to_string()));
         }
