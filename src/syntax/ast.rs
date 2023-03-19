@@ -1,3 +1,5 @@
+use crate::utils::display;
+
 #[repr(i8)]
 #[derive(PartialEq, Debug, Clone)]
 pub enum GenericAst {
@@ -34,11 +36,11 @@ impl std::fmt::Display for GenericAst {
             GenericAst::BinaryExprAst { op, lhs, rhs } => write!(f, "({} {} {})", lhs, op, rhs),
             GenericAst::CallExprAst { callee, args } => {
                 write!(f, "{}(", callee)?;
-                display_args(args, f)
+                display::structured_slice_print(args, f)
             },
             GenericAst::PrototypeAst { name, args } => {
                 write!(f, "{}(", name)?;
-                display_args(args, f)
+                display::structured_slice_print(args, f)
             },
             GenericAst::FunctionAst { proto, body } => {
                 write!(f, "{}\n", proto)?;
@@ -46,19 +48,4 @@ impl std::fmt::Display for GenericAst {
             }
         }
     }
-}
-
-// Cannot use Container because Container type cannot be generics-ed with a trait that has iter()
-// no trait for iter()
-// the slice is working because it can consume the slice. Slice type has iter() method
-
-fn display_args<T: std::fmt::Display>(args: &[T], f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
-{
-    for (i, arg) in args.iter().enumerate() {
-        if i != 0 {
-            write!(f, ", ")?;
-        }
-        write!(f, "{}", arg)?;
-    }
-    write!(f, ")")
 }
