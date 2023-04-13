@@ -1,13 +1,18 @@
 extern crate core;
 
-pub mod parser {
-    pub mod naive_parser;
+pub mod parse {
+    pub mod parser;
     pub mod lexer;
     pub mod token;
 }
 
 pub mod syntax {
     pub mod ast;
+}
+
+pub mod codegen {
+    mod generator;
+    pub mod llvm_generator;
 }
 
 pub mod utils {

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use kaleidoscope::syntax::ast::GenericAst;
-    use kaleidoscope::parser::naive_parser::*;
+    use kaleidoscope::parse::parser::*;
 
     macro_rules! base_passing_parser_test {
         ($name:ident, $src:expr, $count:expr => $should_be:expr) => {

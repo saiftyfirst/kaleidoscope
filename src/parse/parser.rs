@@ -2,8 +2,8 @@ use core::fmt;
 use std::fmt::Formatter;
 
 use crate::syntax::ast::*;
-use crate::parser::lexer::*;
-use crate::parser::token::*;
+use crate::parse::lexer::*;
+use crate::parse::token::*;
 
 extern crate llvm_sys;
 

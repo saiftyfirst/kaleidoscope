@@ -11,25 +11,8 @@ pub enum GenericAst {
     FunctionAst { proto: Box<GenericAst>, body: Box<GenericAst> }
 }
 
-impl GenericAst {
-    pub unsafe fn codegen(&self) -> llvm_sys::prelude::LLVMTypeRef {
-        match self{
-            _ => {
-                let _context = llvm_sys::core::LLVMGetGlobalContext();
-                unsafe { llvm_sys::core::LLVMIntType(32) }
-            }
-        }
-    }
-}
-
 impl std::fmt::Display for GenericAst {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-
-        let x = vec![1, 2, 3];
-        for (i, n) in x.iter().enumerate() {
-            println!("{} - {}", i, n);
-        }
-
         match self {
             GenericAst::NumberExprAst { number } => write!(f, "{}", number),
             GenericAst::VariableExprAst { name } => write!(f, "{}", name),

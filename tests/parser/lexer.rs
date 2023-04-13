@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use kaleidoscope::parser::lexer::*;
-    use kaleidoscope::parser::token::*;
+    use kaleidoscope::parse::lexer::*;
+    use kaleidoscope::parse::token::*;
 
     macro_rules! single_tokenization_test {
         ($name:ident, $src:expr => $should_be:expr) => {
