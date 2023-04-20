@@ -3,6 +3,7 @@ use std::collections::HashMap;
 // llvm-sys
 use llvm_sys::prelude::*;
 use llvm_sys::core::*;
+use llvm_sys::LLVMValue;
 
 use crate::codegen::ir_generator::IRGenerator;
 use crate::syntax::ast::*;
@@ -19,7 +20,7 @@ impl LLVMGeneratorContext {
         unsafe {
             let context = LLVMContextCreate();
             let builder = LLVMCreateBuilderInContext(context);
-            let module = LLVMModuleCreateWithNameInContext("my_module".as_ptr() as *const i8, context);
+            let module = LLVMModuleCreateWithNameInContext("default_module".as_ptr() as *const i8, context);
             let named_values = HashMap::new();
 
             LLVMGeneratorContext {
@@ -32,7 +33,7 @@ impl LLVMGeneratorContext {
     }
 }
 
-impl IRGenerator<LLVMTypeRef> for GenericAst {
+impl IRGenerator<LLVMGeneratorContext, *const LLVMValue> for GenericAst {
     /*
         Learning Notes:
         - Single Static Assignment (SSA)
@@ -42,25 +43,29 @@ impl IRGenerator<LLVMTypeRef> for GenericAst {
             Versioning is used to keep track of the different values of a variable.
             In other words, there is no way to change an SSA value.
     */
-    unsafe fn generate(&self, ast: &GenericAst) -> LLVMTypeRef {
+    unsafe fn generate(&self, context: &mut LLVMGeneratorContext, ast: &GenericAst) -> *const LLVMValue {
         match ast {
             GenericAst::NumberExprAst {number} => {
-                LLVMBFloatType()
+                LLVMConstReal(LLVMBFloatType(), *number)
             },
             GenericAst::VariableExprAst {name} => {
-                LLVMBFloatType()
+                LLVMConstReal(LLVMBFloatType(), 2.2)
             },
             GenericAst::BinaryExprAst {op, lhs, rhs} => {
-                LLVMBFloatType()
+                let lhs = LLVMConstReal(LLVMBFloatType(), 2.2);
+                let rhs = LLVMConstReal(LLVMBFloatType(), 2.2);
+
+                LLVMBuildFAdd(context.builder, lhs, rhs, "addtmp".as_ptr() as *const i8)
+
             },
             GenericAst::CallExprAst {callee, args} => {
-                LLVMBFloatType()
+                LLVMConstReal(LLVMBFloatType(), 2.2)
             },
             GenericAst::FunctionAst {proto, body} => {
-                LLVMBFloatType()
+                LLVMConstReal(LLVMBFloatType(), 2.2)
             },
             GenericAst::PrototypeAst {name, args} => {
-                LLVMBFloatType()
+                LLVMConstReal(LLVMBFloatType(), 2.2)
             }
         }
     }
