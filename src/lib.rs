@@ -8,6 +8,7 @@ pub mod parse {
 
 pub mod syntax {
     pub mod ast;
+    pub mod vocabulary;
 }
 
 pub mod codegen {

@@ -1,4 +1,5 @@
 use crate::parse::token::*;
+use crate::syntax::vocabulary::*;
 
 pub struct Lexer<'a> {
     data: &'a str,

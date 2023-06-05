@@ -3,10 +3,12 @@ use std::collections::HashMap;
 // llvm-sys
 use llvm_sys::prelude::*;
 use llvm_sys::core::*;
+use llvm_sys::LLVMRealPredicate::{LLVMRealOGT, LLVMRealOLT};
 use llvm_sys::LLVMValue;
 
 use crate::codegen::ir_generator::IRGenerator;
 use crate::syntax::ast::*;
+use crate::syntax::vocabulary::SYMBOL_OP_CHARS;
 
 struct LLVMGeneratorContext {
     context: LLVMContextRef,
@@ -33,7 +35,7 @@ impl LLVMGeneratorContext {
     }
 }
 
-impl IRGenerator<LLVMGeneratorContext, *const LLVMValue> for GenericAst {
+impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
     /*
         Learning Notes:
         - Single Static Assignment (SSA)
@@ -43,28 +45,56 @@ impl IRGenerator<LLVMGeneratorContext, *const LLVMValue> for GenericAst {
             Versioning is used to keep track of the different values of a variable.
             In other words, there is no way to change an SSA value.
     */
-    unsafe fn generate(&self, context: &mut LLVMGeneratorContext, ast: &GenericAst) -> *const LLVMValue {
+    unsafe fn generate(&self, context: &mut LLVMGeneratorContext, ast: &GenericAst) -> LLVMValueRef {
         match ast {
             GenericAst::NumberExprAst {number} => {
                 LLVMConstReal(LLVMBFloatType(), *number)
             },
             GenericAst::VariableExprAst {name} => {
                 LLVMConstReal(LLVMBFloatType(), 2.2)
+                // TODO (saif) complete implementation for VariableExprAst
             },
             GenericAst::BinaryExprAst {op, lhs, rhs} => {
-                let lhs = LLVMConstReal(LLVMBFloatType(), 2.2);
-                let rhs = LLVMConstReal(LLVMBFloatType(), 2.2);
+                let lhs_ir = lhs.generate(context, lhs);
+                let rhs_ir = rhs.generate(context, rhs);
 
-                LLVMBuildFAdd(context.builder, lhs, rhs, "addtmp".as_ptr() as *const i8)
-
+                if SYMBOL_OP_CHARS.contains(op) {
+                    match op {
+                        '+' => {
+                            LLVMBuildFAdd(context.builder, lhs_ir, rhs_ir, "addtmp".as_ptr() as *const i8)
+                        },
+                        '-' => {
+                            LLVMBuildFSub(context.builder, lhs_ir, rhs_ir, "subtmp".as_ptr() as *const i8)
+                        },
+                        '*' => {
+                            LLVMBuildFMul(context.builder, lhs_ir, rhs_ir, "multmp".as_ptr() as *const i8)
+                        },
+                        '/' => {
+                            LLVMBuildFDiv(context.builder, lhs_ir, rhs_ir, "divtmp".as_ptr() as *const i8)
+                        },
+                        '>' => {
+                            LLVMBuildFCmp(context.builder, LLVMRealOGT, lhs_ir, rhs_ir, "cmpgt".as_ptr() as *const i8)
+                        },
+                        '<' => {
+                            LLVMBuildFCmp(context.builder, LLVMRealOLT, lhs_ir, rhs_ir, "cmplt".as_ptr() as *const i8)
+                        },
+                        _ => !panic!("Implementation missing for operator {}", op)
+                    }
+                }
+                else {
+                    panic!("Unknown operator {}", op)
+                }
             },
             GenericAst::CallExprAst {callee, args} => {
+                // TODO (saif) complete implementation for CallExprAst
                 LLVMConstReal(LLVMBFloatType(), 2.2)
             },
             GenericAst::FunctionAst {proto, body} => {
+                // TODO (saif) complete implementation for FunctionAst
                 LLVMConstReal(LLVMBFloatType(), 2.2)
             },
             GenericAst::PrototypeAst {name, args} => {
+                // TODO (saif) complete implementation for PrototypeAst
                 LLVMConstReal(LLVMBFloatType(), 2.2)
             }
         }
