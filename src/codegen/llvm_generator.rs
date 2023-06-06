@@ -86,7 +86,30 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
                 }
             },
             GenericAst::CallExprAst {callee, args} => {
-                // TODO (saif) complete implementation for CallExprAst
+                let funcRef = LLVMGetNamedFunction(context.module, callee.as_ptr() as *const i8);
+                if funcRef.is_null() {
+                    panic!("Unknown function referenced {}", callee);
+                }
+
+                let callArgCount = LLVMCountParams(funcRef);
+                if (callArgCount as usize) != args.len() {
+                    panic!("Funtion {} called with unexpected number of arguments", callee);
+                }
+
+                // pub fn LLVMFunctionType(
+                //     ReturnType: LLVMTypeRef,
+                //     ParamTypes: *mut LLVMTypeRef,
+                //     ParamCount: ::libc::c_uint,
+                //     IsVarArg: LLVMBool,
+                // ) -> LLVMTypeRef;
+
+                // LLVMBuildCall2(context.builder,
+                //                TODO (saif) correct function type ? May need to re-create here
+                               // funcRef,
+                               // std::ptr::null_mut(), // TODO (saif) pass correct arguments
+                               // callArgCount,
+                               // "calltmp".as_ptr() as *const i8) // TODO (saif) can these names be the same?
+
                 LLVMConstReal(LLVMBFloatType(), 2.2)
             },
             GenericAst::FunctionAst {proto, body} => {
