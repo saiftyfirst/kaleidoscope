@@ -3,6 +3,18 @@ mod tests {
     use kaleidoscope::syntax::ast::GenericAst;
     use kaleidoscope::parse::parser::*;
 
+    /*
+        Learning Notes on Rust Macros Placeholder Syntax:
+            $x:expr: Matches and captures any Rust expression.
+            $stmt:stmt: Matches and captures any statement (e.g., variable binding, function call, etc.).
+            $pat:pat: Matches and captures a pattern (e.g., used in match expressions).
+            $ident:ident: Matches and captures an identifier (e.g., variable or function name).
+            $block:block: Matches and captures a block of code enclosed in curly braces.
+            $item:item: Matches and captures an item (e.g., function, struct, trait, etc.).
+            $ty:ty: Matches and captures a type.
+            $path:path: Matches and captures a path (e.g., module path, function path).
+            $vis:vis: Matches and captures a visibility qualifier (e.g., pub, crate).
+    */
     macro_rules! base_passing_parser_test {
         ($name:ident, $src:expr, $count:expr => $should_be:expr) => {
             #[test]
