@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use llvm_sys::prelude::*;
 use llvm_sys::core::*;
 use llvm_sys::LLVMRealPredicate::{LLVMRealOGT, LLVMRealOLT};
-use llvm_sys::LLVMValue;
 
 use crate::codegen::ir_generator::IRGenerator;
 use crate::syntax::ast::*;
@@ -78,7 +77,9 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
                         '<' => {
                             LLVMBuildFCmp(context.builder, LLVMRealOLT, lhs_ir, rhs_ir, "cmplt".as_ptr() as *const i8)
                         },
-                        _ => !panic!("Implementation missing for operator {}", op)
+                        _ => {
+                            panic!("Implementation missing for operator {}", op)
+                        }
                     }
                 }
                 else {
@@ -86,13 +87,13 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
                 }
             },
             GenericAst::CallExprAst {callee, args} => {
-                let funcRef = LLVMGetNamedFunction(context.module, callee.as_ptr() as *const i8);
-                if funcRef.is_null() {
+                let func = LLVMGetNamedFunction(context.module, callee.as_ptr() as *const i8);
+                if func.is_null() {
                     panic!("Unknown function referenced {}", callee);
                 }
 
-                let callArgCount = LLVMCountParams(funcRef);
-                if (callArgCount as usize) != args.len() {
+                let call_arg_count = LLVMCountParams(func);
+                if (call_arg_count as usize) != args.len() {
                     panic!("Funtion {} called with unexpected number of arguments", callee);
                 }
 
@@ -118,15 +119,28 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
             },
             GenericAst::PrototypeAst {name, args} => {
                 // TODO (saif) remove assumption that our functions always return a float
-                let returnType = LLVMBFloatType();
-                let mut argTypes = std::vec![LLVMBFloatType(); args.len()];
+                let return_type = LLVMBFloatType();
+                let mut arg_types = std::vec![LLVMBFloatType(); args.len()];
 
-                LLVMAddFunction(context.module,
-                                name.as_ptr() as *const i8,
-                                LLVMFunctionType(returnType,
-                                                 argTypes.as_mut_ptr(),
-                                                 args.len() as u32,
-                                                 0))
+                /* Learning Note:
+                    the prototype with name is not registered in the module's symbol table
+                    until the function is defined.
+                */
+                let function = LLVMAddFunction(context.module,
+                                               name.as_ptr() as *const i8,
+                                               LLVMFunctionType(return_type,
+                                                                arg_types.as_mut_ptr(),
+                                                                args.len() as u32,
+                                                                0));
+
+                // set the names of the variables
+                for (idx, arg) in args.iter().enumerate() {
+                    LLVMSetValueName2(LLVMGetParam(function, idx as u32),
+                                      arg.as_ptr() as *const i8,
+                                      arg.len() as usize)
+                }
+
+                function
             }
         }
     }

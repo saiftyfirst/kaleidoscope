@@ -9,7 +9,6 @@ A run through https://llvm.org/docs/tutorial/MyFirstLanguageFrontend in Rust.
 - BinOp - One of the primary binary operators that are supported
 - RHS - Expression / Number / VariableReference / FunctionCall(Args: <Expression / Number / VariableReference / FunctionCall>)
 
-### Refactoring:
-- Reorganise parse
-- Do Token specific checks as impl for Token (e.g. isParenthesis)
-- Fix precedence stuff
+### Limitations
+- Can only use floats as arguments and return types
+- All functions return a mandatory float
