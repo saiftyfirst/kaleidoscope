@@ -117,8 +117,16 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
                 LLVMConstReal(LLVMBFloatType(), 2.2)
             },
             GenericAst::PrototypeAst {name, args} => {
-                // TODO (saif) complete implementation for PrototypeAst
-                LLVMConstReal(LLVMBFloatType(), 2.2)
+                // TODO (saif) remove assumption that our functions always return a float
+                let returnType = LLVMBFloatType();
+                let mut argTypes = std::vec![LLVMBFloatType(); args.len()];
+
+                LLVMAddFunction(context.module,
+                                name.as_ptr() as *const i8,
+                                LLVMFunctionType(returnType,
+                                                 argTypes.as_mut_ptr(),
+                                                 args.len() as u32,
+                                                 0))
             }
         }
     }
