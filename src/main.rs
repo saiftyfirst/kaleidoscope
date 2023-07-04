@@ -1,4 +1,4 @@
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use kaleidoscope::parse::parser::*;
 
 const QUIT_CMD : &str = "quit";

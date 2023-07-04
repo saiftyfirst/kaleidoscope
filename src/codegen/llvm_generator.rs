@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use llvm_sys::analysis::{LLVMVerifierFailureAction, LLVMVerifyFunction};
 
 // llvm-sys
 use llvm_sys::prelude::*;
@@ -19,6 +20,12 @@ struct LLVMGeneratorContext {
 impl LLVMGeneratorContext {
     pub fn new() -> LLVMGeneratorContext {
         unsafe {
+            /* Learning Note:
+                The context is used to hold and manage various LLVM **objects and data structures**.
+                The builder is used to construct **LLVM instructions** within a basic block.
+                A module is a container for **LLVM functions and global variables**.
+                LLVM values or variables.
+            */
             let context = LLVMContextCreate();
             let builder = LLVMCreateBuilderInContext(context);
             let module = LLVMModuleCreateWithNameInContext("default_module".as_ptr() as *const i8, context);
@@ -44,14 +51,17 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
             Versioning is used to keep track of the different values of a variable.
             In other words, there is no way to change an SSA value.
     */
-    unsafe fn generate(&self, context: &mut LLVMGeneratorContext, ast: &GenericAst) -> LLVMValueRef {
-        match ast {
+    unsafe fn generate(&self, context: &mut LLVMGeneratorContext, _ast: &GenericAst) -> LLVMValueRef {
+        match self {
             GenericAst::NumberExprAst {number} => {
                 LLVMConstReal(LLVMBFloatType(), *number)
             },
             GenericAst::VariableExprAst {name} => {
-                LLVMConstReal(LLVMBFloatType(), 2.2)
-                // TODO (saif) complete implementation for VariableExprAst
+                if let Some(value) = context.named_values.get(name) {
+                    *value
+                } else {
+                    panic!("Unknown variable name: {}", name);
+                }
             },
             GenericAst::BinaryExprAst {op, lhs, rhs} => {
                 let lhs_ir = lhs.generate(context, lhs);
@@ -60,6 +70,12 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
                 if SYMBOL_OP_CHARS.contains(op) {
                     match op {
                         '+' => {
+                            /*
+                                Learning Note: Why is the builder passed in ?
+                                The builder is used to construct LLVM instructions within a basic block.
+                                The builder keeps track of the current insertion point in the basic block and
+                                is responsible for generating and appending the LLVM instruction to the block.
+                            */
                             LLVMBuildFAdd(context.builder, lhs_ir, rhs_ir, "addtmp".as_ptr() as *const i8)
                         },
                         '-' => {
@@ -97,25 +113,61 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
                     panic!("Funtion {} called with unexpected number of arguments", callee);
                 }
 
-                // pub fn LLVMFunctionType(
-                //     ReturnType: LLVMTypeRef,
-                //     ParamTypes: *mut LLVMTypeRef,
-                //     ParamCount: ::libc::c_uint,
-                //     IsVarArg: LLVMBool,
-                // ) -> LLVMTypeRef;
+                let mut generated_args = Vec::new();
+                for arg in args.iter() {
+                    generated_args.push(arg.generate(context, arg));
+                }
 
-                // LLVMBuildCall2(context.builder,
-                //                TODO (saif) correct function type ? May need to re-create here
-                               // funcRef,
-                               // std::ptr::null_mut(), // TODO (saif) pass correct arguments
-                               // callArgCount,
-                               // "calltmp".as_ptr() as *const i8) // TODO (saif) can these names be the same?
-
-                LLVMConstReal(LLVMBFloatType(), 2.2)
+                LLVMBuildCall2(context.builder,
+                               LLVMTypeOf(func),
+                               func,
+                               generated_args.as_mut_ptr(),
+                               call_arg_count,
+                               "calltmp".as_ptr() as *const i8)
             },
             GenericAst::FunctionAst {proto, body} => {
-                // TODO (saif) complete implementation for FunctionAst
-                LLVMConstReal(LLVMBFloatType(), 2.2)
+                let proto_unboxed = &**proto;
+
+                if let GenericAst::PrototypeAst { name, args} = proto_unboxed {
+
+                    let mut func_proto = LLVMGetNamedFunction(context.module,
+                                                              name.as_ptr() as *const i8);
+                    if func_proto.is_null() {
+                        // TODO (saif) weird that proto has to call a member and pass itself
+                        // This is due to bad interface design. Fix It!
+                        // Moreover, look at the function so far, the 3rd parameter is never used
+                        func_proto = proto.generate(context, proto_unboxed);
+                    }
+
+                    let first_block = LLVMGetFirstBasicBlock(func_proto);
+                    if first_block.is_null() {
+                        let basic_block = LLVMAppendBasicBlockInContext(context.context,
+                                                                        func_proto,
+                                                                        "entry".as_ptr() as *const i8);
+                        LLVMPositionBuilderAtEnd(context.builder, basic_block);
+
+                        context.named_values.clear();
+                        // Why are we adding the args to the named_values map?
+                        for (i, arg_name) in args.iter().enumerate() {
+                            let arg = LLVMGetParam(func_proto, i as u32);
+                            context.named_values.insert(arg_name.clone(), arg);
+                        }
+
+                        let body_ir = body.generate(context, body);
+                        // TODO (saif) optionals instead of nulls/panics?
+                        if !body_ir.is_null() {
+                            LLVMBuildRet(context.builder, body_ir);
+                            LLVMVerifyFunction(func_proto, LLVMVerifierFailureAction::LLVMPrintMessageAction);
+                        } else {
+                            //erase?
+                        }
+                        return func_proto;
+                    } else {
+                        panic!("Function {} redefinition is not allowed", name);
+                    }
+                } else {
+                    panic!("Expected Prototype Ast!");
+                }
             },
             GenericAst::PrototypeAst {name, args} => {
                 // TODO (saif) remove assumption that our functions always return a float
@@ -126,21 +178,20 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
                     the prototype with name is not registered in the module's symbol table
                     until the function is defined.
                 */
-                let function = LLVMAddFunction(context.module,
-                                               name.as_ptr() as *const i8,
-                                               LLVMFunctionType(return_type,
-                                                                arg_types.as_mut_ptr(),
-                                                                args.len() as u32,
-                                                                0));
+                let func_proto = LLVMAddFunction(context.module,
+                                                 name.as_ptr() as *const i8,
+                                                 LLVMFunctionType(return_type,
+                                                                  arg_types.as_mut_ptr(),
+                                                                  args.len() as u32,
+                                                                  0));
 
                 // set the names of the variables
                 for (idx, arg) in args.iter().enumerate() {
-                    LLVMSetValueName2(LLVMGetParam(function, idx as u32),
+                    LLVMSetValueName2(LLVMGetParam(func_proto, idx as u32),
                                       arg.as_ptr() as *const i8,
                                       arg.len() as usize)
                 }
-
-                function
+                func_proto
             }
         }
     }
