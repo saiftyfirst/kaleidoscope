@@ -122,6 +122,14 @@ mod tests {
             GenericAst::PrototypeAst { name: "atan2".to_string(), args: vec!["arg".to_string(), "arg2".to_string()] }
         ]
     );
+
+    base_passing_parser_test!(
+        can_parse_single_argument_function,
+        r###"
+            def my_tan(arg1) {
+                arg1
+            }
+        "###, 0 =>
+        vec![]
+    );
 }
-
-
