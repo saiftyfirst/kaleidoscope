@@ -12,3 +12,9 @@ A run through https://llvm.org/docs/tutorial/MyFirstLanguageFrontend in Rust.
 ### Limitations
 - Can only use floats as arguments and return types
 - All functions return a mandatory float
+
+### Ideas
+Pipeline Infrastructure
+Stage 1 -> Stage 2 -> ... -> Stage N
+- Templated Input -> Templated Output in each stage 
+- Design such that arbitrary stages can be added constrained on whether their input and output times are compatible

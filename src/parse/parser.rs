@@ -40,6 +40,7 @@ impl<'a> Parser<'a> {
 
     fn parse_function_definition(&mut self) -> Result<GenericAst, ParseError> {
         self.lexer.pop(); // pop def
+        // TODO (saif) when parse_prototype works but not parse_abstract_expression, the error is obscure!
         Ok(GenericAst::FunctionAst{ proto: Box::from(self.parse_prototype()?), body: Box::from(self.parse_abstract_expression()?) })
     }
 
