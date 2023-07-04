@@ -51,10 +51,7 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
             Versioning is used to keep track of the different values of a variable.
             In other words, there is no way to change an SSA value.
     */
-    // TODO (saif) weird that proto has to call a member and pass itself
-    // This is due to bad interface design. Fix It!
-    // Moreover, look at the function so far, the 3rd parameter is never used
-    unsafe fn generate(&self, context: &mut LLVMGeneratorContext, _ast: &GenericAst) -> LLVMValueRef {
+    unsafe fn generate(&self, context: &mut LLVMGeneratorContext) -> LLVMValueRef {
         match self {
             GenericAst::NumberExprAst {number} => {
                 LLVMConstReal(LLVMBFloatType(), *number)
@@ -67,8 +64,8 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
                 }
             },
             GenericAst::BinaryExprAst {op, lhs, rhs} => {
-                let lhs_ir = lhs.generate(context, lhs);
-                let rhs_ir = rhs.generate(context, rhs);
+                let lhs_ir = lhs.generate(context);
+                let rhs_ir = rhs.generate(context);
 
                 if SYMBOL_OP_CHARS.contains(op) {
                     match op {
@@ -118,7 +115,7 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
 
                 let mut generated_args = Vec::new();
                 for arg in args.iter() {
-                    generated_args.push(arg.generate(context, arg));
+                    generated_args.push(arg.generate(context));
                 }
 
                 LLVMBuildCall2(context.builder,
@@ -135,7 +132,7 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
                     let mut func_proto = LLVMGetNamedFunction(context.module,
                                                               name.as_ptr() as *const i8);
                     if func_proto.is_null() {
-                        func_proto = proto.generate(context, proto_unboxed);
+                        func_proto = proto.generate(context);
                     }
 
                     // TODO (saif) check if null again ?!
@@ -156,7 +153,7 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
                             context.named_values.insert(arg_name.clone(), arg);
                         }
 
-                        let body_ir = body.generate(context, body);
+                        let body_ir = body.generate(context);
                         // TODO (saif) optionals instead of nulls/panics?
                         if !body_ir.is_null() {
                             LLVMBuildRet(context.builder, body_ir);

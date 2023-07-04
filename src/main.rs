@@ -1,5 +1,5 @@
 use std::io::{self, Write};
-use std::ffi::{CStr, CString};
+use std::ffi::{CStr};
 
 use llvm_sys::core::LLVMPrintValueToString;
 
@@ -30,7 +30,7 @@ impl Driver {
             println!("{}", ast);
 
             unsafe {
-                let llvm_value_ref = ast.generate(&mut llvm_generator_context, &ast);
+                let llvm_value_ref = ast.generate(&mut llvm_generator_context);
                 println!("{}", CStr::from_ptr(LLVMPrintValueToString(llvm_value_ref)).to_str().unwrap());
             }
         }
