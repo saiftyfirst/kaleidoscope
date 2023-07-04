@@ -12,7 +12,7 @@ pub mod syntax {
 }
 
 pub mod codegen {
-    mod ir_generator;
+    pub mod ir_generator;
     pub mod llvm_generator;
 }
 

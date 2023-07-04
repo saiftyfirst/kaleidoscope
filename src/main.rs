@@ -1,5 +1,11 @@
 use std::io::{self, Write};
+use std::ffi::{CStr, CString};
+
+use llvm_sys::core::LLVMPrintValueToString;
+
 use kaleidoscope::parse::parser::*;
+use kaleidoscope::codegen::llvm_generator::*;
+use kaleidoscope::codegen::ir_generator::IRGenerator;
 
 const QUIT_CMD : &str = "quit";
 
@@ -7,6 +13,7 @@ pub struct Driver {}
 
 impl Driver {
     pub fn run() {
+        let mut llvm_generator_context = LLVMGeneratorContext::new();
         loop {
             print!("ready>> ");
             io::stdout().flush().unwrap(); // flushes the buffer
@@ -19,7 +26,13 @@ impl Driver {
             }
 
             let mut parser = Parser::new(&prompt);
-            println!("{}", parser.build_next_ast().unwrap());
+            let ast = parser.build_next_ast().unwrap();
+            println!("{}", ast);
+
+            unsafe {
+                let llvm_value_ref = ast.generate(&mut llvm_generator_context, &ast);
+                println!("{}", CStr::from_ptr(LLVMPrintValueToString(llvm_value_ref)).to_str().unwrap());
+            }
         }
     }
 }

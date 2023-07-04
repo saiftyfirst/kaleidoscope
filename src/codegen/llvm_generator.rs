@@ -10,7 +10,7 @@ use crate::codegen::ir_generator::IRGenerator;
 use crate::syntax::ast::*;
 use crate::syntax::vocabulary::SYMBOL_OP_CHARS;
 
-struct LLVMGeneratorContext {
+pub struct LLVMGeneratorContext {
     context: LLVMContextRef,
     module: LLVMModuleRef,
     builder: LLVMBuilderRef,
@@ -51,6 +51,9 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
             Versioning is used to keep track of the different values of a variable.
             In other words, there is no way to change an SSA value.
     */
+    // TODO (saif) weird that proto has to call a member and pass itself
+    // This is due to bad interface design. Fix It!
+    // Moreover, look at the function so far, the 3rd parameter is never used
     unsafe fn generate(&self, context: &mut LLVMGeneratorContext, _ast: &GenericAst) -> LLVMValueRef {
         match self {
             GenericAst::NumberExprAst {number} => {
@@ -110,7 +113,7 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
 
                 let call_arg_count = LLVMCountParams(func);
                 if (call_arg_count as usize) != args.len() {
-                    panic!("Funtion {} called with unexpected number of arguments", callee);
+                    panic!("Function {} called with unexpected number of arguments", callee);
                 }
 
                 let mut generated_args = Vec::new();
@@ -129,21 +132,21 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
                 let proto_unboxed = &**proto;
 
                 if let GenericAst::PrototypeAst { name, args} = proto_unboxed {
-
                     let mut func_proto = LLVMGetNamedFunction(context.module,
                                                               name.as_ptr() as *const i8);
                     if func_proto.is_null() {
-                        // TODO (saif) weird that proto has to call a member and pass itself
-                        // This is due to bad interface design. Fix It!
-                        // Moreover, look at the function so far, the 3rd parameter is never used
                         func_proto = proto.generate(context, proto_unboxed);
                     }
 
+                    // TODO (saif) check if null again ?!
+                    // TODO (saif) check if empty ?!
+
                     let first_block = LLVMGetFirstBasicBlock(func_proto);
                     if first_block.is_null() {
-                        let basic_block = LLVMAppendBasicBlockInContext(context.context,
-                                                                        func_proto,
-                                                                        "entry".as_ptr() as *const i8);
+                        let basic_block = LLVMAppendBasicBlockInContext(
+                            context.context,
+                            func_proto,
+                            "entry".as_ptr() as *const i8);
                         LLVMPositionBuilderAtEnd(context.builder, basic_block);
 
                         context.named_values.clear();
