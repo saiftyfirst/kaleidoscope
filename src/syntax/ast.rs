@@ -22,12 +22,12 @@ impl std::fmt::Display for GenericAst {
                 display::structured_slice_print(args, f)
             },
             GenericAst::PrototypeAst { name, args } => {
-                write!(f, "{}(", name)?;
+                write!(f, "def {}(", name)?;
                 display::structured_slice_print(args, f)
             },
             GenericAst::FunctionAst { proto, body } => {
                 write!(f, "{}\n", proto)?;
-                write!(f, "{}\n", body)
+                write!(f, "\t{}", body)
             }
         }
     }

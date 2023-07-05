@@ -1,18 +1,6 @@
 use std::fmt::Formatter;
+use crate::syntax::vocabulary::get_op_precedence;
 
-const SYMBOL_NON_OP_CHARS: &'static [char; 3] = &['(', ')', ','];
-const SYMBOL_OP_CHARS: &'static [char; 6] = &['+', '-', '*', '/', '>', '<'];
-pub fn is_symbol_char(c: char) -> bool {
-    SYMBOL_NON_OP_CHARS.contains(&c) || SYMBOL_OP_CHARS.contains(&c)
-}
-fn get_op_precedence(op: &char) -> i8 {
-    match op {
-        '<' | '>' => 10,
-        '+' | '-' => 20,
-        '*' | '/' => 30,
-        _ => -1
-    }
-}
 pub fn get_token_precedence(tok: &Token) -> i8 {
     if let Token::TokSymbol(ch) = tok {
         return get_op_precedence(ch);
