@@ -2,6 +2,11 @@ use crate::utils::display;
 
 #[repr(i8)]
 #[derive(PartialEq, Debug, Clone)]
+/*
+    Learning Note:
+        Default implementations are derived when we use the above derive macro.
+        PartialEq, for example, will loosely implement a field by field comparision.
+*/
 pub enum GenericAst {
     NumberExprAst { number: f64 },
     VariableExprAst { name: String },

@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::ffi::{CStr};
+use std::os::raw::{c_char, c_ulong};
 use llvm_sys::analysis::{LLVMVerifierFailureAction, LLVMVerifyFunction};
 
 // llvm-sys
@@ -17,9 +19,12 @@ pub struct LLVMGeneratorContext {
     named_values: HashMap<String, LLVMValueRef>
 }
 
-impl LLVMGeneratorContext {
-    pub fn new() -> LLVMGeneratorContext {
-        unsafe {
+impl LLVMGeneratorContext
+{
+    pub fn new() -> LLVMGeneratorContext
+    {
+        unsafe
+            {
             /* Learning Note:
                 The context is used to hold and manage various LLVM **objects and data structures**.
                 The builder is used to construct **LLVM instructions** within a basic block.
@@ -28,10 +33,12 @@ impl LLVMGeneratorContext {
             */
             let context = LLVMContextCreate();
             let builder = LLVMCreateBuilderInContext(context);
-            let module = LLVMModuleCreateWithNameInContext("default_module".as_ptr() as *const i8, context);
+            let module = LLVMModuleCreateWithNameInContext(
+                "default_module".as_ptr() as *const i8, context);
             let named_values = HashMap::new();
 
-            LLVMGeneratorContext {
+            LLVMGeneratorContext
+            {
                 context,
                 module,
                 builder,
@@ -39,9 +46,16 @@ impl LLVMGeneratorContext {
             }
         }
     }
+
+    pub fn print_module(&self) {
+        unsafe {
+            println!("{}", CStr::from_ptr(LLVMPrintModuleToString(self.module)).to_str().unwrap());
+        }
+    }
 }
 
-impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
+impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst
+{
     /*
         Learning Notes:
         - Single Static Assignment (SSA)
@@ -128,9 +142,10 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
             GenericAst::FunctionAst {proto, body} => {
                 let proto_unboxed = &**proto;
 
-                if let GenericAst::PrototypeAst { name, args} = proto_unboxed {
-                    let mut func_proto = LLVMGetNamedFunction(context.module,
-                                                              name.as_ptr() as *const i8);
+                if let GenericAst::PrototypeAst { name, args : _} = proto_unboxed {
+                    let mut func_proto = LLVMGetNamedFunction(
+                        context.module,
+                        name.as_ptr() as *const i8);
                     if func_proto.is_null() {
                         func_proto = proto.generate(context);
                     }
@@ -146,11 +161,15 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
                             "entry".as_ptr() as *const i8);
                         LLVMPositionBuilderAtEnd(context.builder, basic_block);
 
-                        context.named_values.clear();
-                        // Why are we adding the args to the named_values map?
-                        for (i, arg_name) in args.iter().enumerate() {
-                            let arg = LLVMGetParam(func_proto, i as u32);
-                            context.named_values.insert(arg_name.clone(), arg);
+                        // TODO (saif) consider clearing the named_values map ?
+                        //context.named_values.clear();
+                        for idx in 0..LLVMCountParams(func_proto)  {
+                            let param = LLVMGetParam(func_proto, idx);
+                            let mut length: usize = 0;
+                            let name_buffer: *const c_char = unsafe { LLVMGetValueName2(param, &mut length) };
+                            LLVMGetValueName2(param, &mut length);
+                            println!("-- {}", CStr::from_ptr(name_buffer).to_str().unwrap());
+                            context.named_values.insert(CStr::from_ptr(name_buffer).to_str().unwrap().to_string(), param);
                         }
 
                         let body_ir = body.generate(context);
