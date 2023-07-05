@@ -14,7 +14,7 @@ A run through https://llvm.org/docs/tutorial/MyFirstLanguageFrontend in Rust.
 - All functions return a mandatory float
 
 ### Ideas
-Pipeline Infrastructure
-Stage 1 -> Stage 2 -> ... -> Stage N
-- Templated Input -> Templated Output in each stage 
-- Design such that arbitrary stages can be added constrained on whether their input and output times are compatible
+1. Pipeline Infrastructure (Stage 1 -> Stage 2 -> ... -> Stage N) 
+   - Templated Input -> Templated Output in each stage 
+   - Design such that arbitrary stages can be added constrained on whether their input and output times are compatible
+2. Move to InkWell for IR Generation

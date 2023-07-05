@@ -126,10 +126,32 @@ mod tests {
     base_passing_parser_test!(
         can_parse_single_argument_function,
         r###"
-            def my_tan(arg1) {
+            def my_tan(arg1)
                 arg1
+        "###, 1 =>
+        vec![
+            GenericAst::FunctionAst {
+                proto: Box::new(GenericAst::PrototypeAst { name: "my_tan".to_string(), args: vec!["arg1".to_string()] }),
+                body: Box::new(GenericAst::VariableExprAst { name: "arg1".to_string() })
             }
-        "###, 0 =>
-        vec![]
+        ]
+    );
+
+    base_passing_parser_test!(
+        can_parse_multi_argument_function,
+        r###"
+            def my_tan(arg1, arg2)
+                arg1 + arg2
+        "###, 1 =>
+        vec![
+            GenericAst::FunctionAst {
+                proto: Box::new(GenericAst::PrototypeAst { name: "my_tan".to_string(), args: vec!["arg1".to_string(), "arg2".to_string()] }),
+                body: Box::new(GenericAst::BinaryExprAst {
+                    op: '+',
+                    lhs:Box::new(GenericAst::VariableExprAst { name: "arg1".to_string() }),
+                    rhs:Box::new(GenericAst::VariableExprAst { name: "arg2".to_string() }),
+                }),
+            }
+        ]
     );
 }
