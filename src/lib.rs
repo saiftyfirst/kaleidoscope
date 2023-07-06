@@ -16,6 +16,13 @@ pub mod codegen {
     pub mod llvm_generator;
 }
 
+pub mod pipelining {
+    mod staging {
+        pub mod stage;
+    }
+    mod pipeline;
+}
+
 pub mod utils {
     pub mod display;
 }

@@ -7,6 +7,8 @@ use kaleidoscope::parse::parser::*;
 use kaleidoscope::codegen::llvm_generator::*;
 use kaleidoscope::codegen::ir_generator::IRGenerator;
 
+use kaleidoscope::pipelining::*;
+
 const QUIT_CMD : &str = "quit";
 
 pub struct Driver {}
@@ -35,8 +37,17 @@ impl Driver {
             }
         }
     }
+
+    pub fn run_pipeline() {
+        let mut pipeline = Pipeline::new(vec![
+            Box::new(StringToChars),
+            Box::new(CharsToInts)
+        ]);
+        pipeline.process("hello".to_string());
+    }
+
 }
 
 fn main() {
-    Driver::run();
+    Driver::run_pipeline();
 }
