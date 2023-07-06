@@ -16,58 +16,55 @@ mod tests {
         LLVMGeneratorContext::new()
     }
 
-    #[test]
-    fn generate_addition_expression() {
-        let mut llvm_context = LLVMGeneratorContext::new();
+    macro_rules! llvm_ir_generation_single_snippet_test {
+        ($name:ident, $src:expr) => {
+            #[test]
+            fn $name() {
+                let mut llvm_context = create_code_generator();
+                let ast = parse_source_to_ast($src);
 
+                unsafe {
+                    let llvm_value_ref = ast.generate(&mut llvm_context);
 
-        let ast = parse_source_to_ast(
-            r###"
-                1 + 2
-            "###);
-
-        unsafe {
-            let llvm_value_ref = ast.generate(&mut create_code_generator());
-            println!("{}", CStr::from_ptr(LLVMPrintValueToString(llvm_value_ref)).to_str().unwrap());
-        }
-
-        let ast = parse_source_to_ast(
-            r###"
-                2
-            "###);
-
-        unsafe {
-            let llvm_value_ref = ast.generate(&mut create_code_generator());
-            println!("{}", CStr::from_ptr(LLVMPrintValueToString(llvm_value_ref)).to_str().unwrap());
-        }
-
-        let ast = parse_source_to_ast(
-            r###"
-                3
-            "###);
-
-        unsafe {
-
-            let llvm_value_ref = ast.generate(&mut llvm_context);
-
-            llvm_context.print_module();
-            println!("{}", CStr::from_ptr(LLVMPrintValueToString(LLVMConstReal(LLVMBFloatType(), 1.0))).to_str().unwrap());
+                    // visual check
+                    // if $module_only {
+                        println!("Generated LLVM IR Module: {}", llvm_context.get_module_as_string());
+                    // } else {
+                        // println!("Generated LLVM IR Value:");
+                        // println!("{}", CStr::from_ptr(LLVMPrintValueToString(llvm_value_ref)).to_str().unwrap());
+                    // }
+                }
+            }
         }
     }
 
-    #[test]
-    fn generate_arithmetic_function() {
-        let mut llvm_context = LLVMGeneratorContext::new();
+    // llvm_ir_generation_single_snippet_test!(
+    //     generate_simple_addition_expression,
+    //     r###"
+    //         4 + 5
+    //     "###,
+    //     false
+    // );
 
-        let ast = parse_source_to_ast(
-            r###"
-                def foo(a, b) a*a + 2*a*b + b*b
-            "###);
+    llvm_ir_generation_single_snippet_test!(
+        generate_funtion_definition_with_arguments,
+        r###"
+            def foo(a, b) a*a + 2*a*b + b*b
+        "###
+    );
 
-        unsafe {
-            ast.generate(&mut llvm_context);
-            llvm_context.print_module();
-        }
-    }
+    // llvm_ir_generation_single_snippet_test!(
+    //     generate_funtion_definition_with_arguments_and_literals,
+    //     r###"
+    //         def bar(a) foo(a, 4.0) + bar(31337)
+    //     "###,
+    //     true
+    // );
 
+    llvm_ir_generation_single_snippet_test!(
+        generate_extern_cosine_with_param,
+        r###"
+            extern cos(x)
+        "###
+    );
 }
