@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::ffi::{CStr};
 use std::os::raw::{c_char};
+use std::ptr::null;
 use llvm_sys::analysis::{LLVMVerifierFailureAction, LLVMVerifyFunction};
 
 // llvm-sys
@@ -128,12 +129,21 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst
                 }
 
                 let mut generated_args = Vec::new();
+
+                // let mut type_arr: [LLVMTypeRef; 2] = [LLVMBFloatTypeInContext(context.context), LLVMBFloatTypeInContext(context.context)];
+                // let _params = LLVMGetParamTypes(LLVMTypeOf(func), type_arr.as_mut_ptr());
+
                 for arg in args.iter() {
+                    println!("Generated arg: {:?}", arg);
                     generated_args.push(arg.generate(context));
                 }
+                let x = LLVMGetParam(func, 0);
+                println!("{}", CStr::from_ptr(LLVMPrintTypeToString(LLVMTypeOf(x))).to_str().unwrap());
 
-                LLVMBuildCall2(context.builder,
-                               LLVMTypeOf(func),
+                // LLVMConstReal(LLVMBFloatTypeInContext(context.context), 2.0)
+
+                LLVMBuildCall(context.builder,
+                               // LLVMTypeOf(func),
                                func,
                                generated_args.as_mut_ptr(),
                                call_arg_count,
@@ -168,14 +178,14 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst
                         let mut length: usize = 0;
                         let name_buffer: *const c_char = unsafe { LLVMGetValueName2(param, &mut length) };
                         LLVMGetValueName2(param, &mut length);
-                        println!("-- {}", CStr::from_ptr(name_buffer).to_str().unwrap());
                         context.named_values.insert(CStr::from_ptr(name_buffer).to_str().unwrap().to_string(), param);
                     }
 
                     let body_ir = body.generate(context);
                     // TODO (saif) optionals instead of nulls/panics?
                     if !body_ir.is_null() {
-                        LLVMBuildRet(context.builder, body_ir);
+                        // LLVMBuildRet(context.builder, body_ir);
+                        context.named_values.insert("cache".to_string(), body_ir);
                         LLVMVerifyFunction(func_proto, LLVMVerifierFailureAction::LLVMPrintMessageAction);
                     } else {
                         //erase?
