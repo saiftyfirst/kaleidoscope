@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::ffi::{CStr};
 use std::os::raw::{c_char};
-use std::ptr::null;
 use llvm_sys::analysis::{LLVMVerifierFailureAction, LLVMVerifyFunction};
 
 // llvm-sys
@@ -137,13 +136,13 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst
                     println!("Generated arg: {:?}", arg);
                     generated_args.push(arg.generate(context));
                 }
-                let x = LLVMGetParam(func, 0);
-                println!("{}", CStr::from_ptr(LLVMPrintTypeToString(LLVMTypeOf(x))).to_str().unwrap());
 
                 // LLVMConstReal(LLVMBFloatTypeInContext(context.context), 2.0)
 
-                LLVMBuildCall(context.builder,
-                               // LLVMTypeOf(func),
+                let fftype = LLVMFunctionType(LLVMFloatType(), [LLVMFloatType()].as_mut_ptr(), 1, 0);
+
+                LLVMBuildCall2(context.builder,
+                               fftype,
                                func,
                                generated_args.as_mut_ptr(),
                                call_arg_count,
@@ -185,7 +184,8 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst
                     // TODO (saif) optionals instead of nulls/panics?
                     if !body_ir.is_null() {
                         // LLVMBuildRet(context.builder, body_ir);
-                        context.named_values.insert("cache".to_string(), body_ir);
+
+                        context.named_values.insert("cache\0".to_string(), body_ir);
                         LLVMVerifyFunction(func_proto, LLVMVerifierFailureAction::LLVMPrintMessageAction);
                     } else {
                         //erase?

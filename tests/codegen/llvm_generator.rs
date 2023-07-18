@@ -78,7 +78,7 @@ mod tests {
 
         let ast_bar = parse_source_to_ast(
             r###"
-                def bar(a) foo(a)
+                def bar(b) 2*foo(b)
             "###
         );
 
