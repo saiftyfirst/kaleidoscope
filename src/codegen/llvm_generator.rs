@@ -16,7 +16,8 @@ pub struct LLVMGeneratorContext {
     context: LLVMContextRef,
     module: LLVMModuleRef,
     builder: LLVMBuilderRef,
-    named_values: HashMap<String, LLVMValueRef>
+    named_values: HashMap<String, LLVMValueRef>,
+    function_types: HashMap<String, LLVMTypeRef>
 }
 
 impl LLVMGeneratorContext
@@ -36,13 +37,15 @@ impl LLVMGeneratorContext
             let module = LLVMModuleCreateWithNameInContext(
                 "default_module\0".as_ptr() as *const i8, context);
             let named_values = HashMap::new();
+            let function_types = HashMap::new();
 
             LLVMGeneratorContext
             {
                 context,
                 module,
                 builder,
-                named_values
+                named_values,
+                function_types
             }
         }
     }
@@ -137,13 +140,10 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst
                     generated_args.push(arg.generate(context));
                 }
 
-                // LLVMConstReal(LLVMBFloatTypeInContext(context.context), 2.0)
-
-                let fftype = LLVMFunctionType(LLVMFloatType(), [LLVMFloatType()].as_mut_ptr(), 1, 0);
-                // let fftype = LLVMGetElementType(LLVMTypeOf(func));
+                let function_type = *context.function_types.get(callee).unwrap();
 
                 LLVMBuildCall2(context.builder,
-                               fftype,
+                               function_type,
                                func,
                                generated_args.as_mut_ptr(),
                                call_arg_count,
@@ -205,12 +205,14 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst
                     the prototype with name is not registered in the module's symbol table
                     until the function is defined.
                 */
+                let function_type = LLVMFunctionType(return_type,
+                                                     arg_types.as_mut_ptr(),
+                                                     args.len() as u32,
+                                                     0);
+                context.function_types.insert(name.clone(), function_type);
                 let func_proto = LLVMAddFunction(context.module,
                                                  name.as_ptr() as *const i8,
-                                                 LLVMFunctionType(return_type,
-                                                                  arg_types.as_mut_ptr(),
-                                                                  args.len() as u32,
-                                                                  0));
+                                                 function_type);
 
                 // set the names of the variables
                 for (idx, arg) in args.iter().enumerate() {
