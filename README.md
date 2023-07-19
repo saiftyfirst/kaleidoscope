@@ -10,8 +10,10 @@ A run through https://llvm.org/docs/tutorial/MyFirstLanguageFrontend in Rust.
 - RHS - Expression / Number / VariableReference / FunctionCall(Args: <Expression / Number / VariableReference / FunctionCall>)
 
 ### Limitations
-- Can only use floats as arguments and return types
-- All functions return a mandatory float
+1. All integral types are float types
+2. 
+3. Can only use floats as arguments and return types
+4. All functions return a mandatory float
 
 ### Ideas
 1. Pipeline Infrastructure (Stage 1 -> Stage 2 -> ... -> Stage N) 

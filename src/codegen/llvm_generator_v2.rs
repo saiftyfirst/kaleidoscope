@@ -12,52 +12,61 @@ use crate::codegen::IRGenerator;
 use crate::syntax::ast::*;
 use crate::syntax::vocabulary::SYMBOL_OP_CHARS;
 
-pub struct LLVMGeneratorContext {
-    context: LLVMContextRef,
-    module: LLVMModuleRef,
-    builder: LLVMBuilderRef,
-    named_values: HashMap<String, LLVMValueRef>,
-    function_types: HashMap<String, LLVMTypeRef>
+// Generation 2
+use inkwell::context::Context;
+use inkwell::module::Module;
+use inkwell::builder::Builder;
+use inkwell::values::FloatValue;
+use inkwell::{FloatPredicate};
+
+macro_rules! panic_with_reason {
+    ($reason:expr, $($arg:tt)*) => ({
+        panic!(concat!("IR Generation Failed: ", $reason), $($arg)*);
+    });
 }
 
-impl LLVMGeneratorContext
+enum InkwellType {
+    FloatValue,
+}
+
+struct LLVMGeneratorLocal<'ctx> {
+    context: Context,
+    module: Module<'ctx>,
+    builder: Builder<'ctx>,
+
+    named_variables: HashMap<&'ctx str, InkwellType>,
+    function_types: HashMap<&'ctx str, LLVMTypeRef>
+}
+
+impl<'ctx> LLVMGeneratorLocal<'ctx>
 {
-    pub fn new() -> LLVMGeneratorContext
+    pub fn new(module_identifier: &str) -> LLVMGeneratorLocal
     {
         unsafe
             {
-            /* Learning Note:
-                The context is used to hold and manage various LLVM **objects and data structures**.
-                The builder is used to construct **LLVM instructions** within a basic block.
-                A module is a container for **LLVM functions and global variables**.
-                LLVM values or variables.
-            */
-            let context = LLVMContextCreate();
-            let builder = LLVMCreateBuilderInContext(context);
-            let module = LLVMModuleCreateWithNameInContext(
-                "default_module\0".as_ptr() as *const i8, context);
-            let named_values = HashMap::new();
-            let function_types = HashMap::new();
-
-            LLVMGeneratorContext
-            {
-                context,
-                module,
-                builder,
-                named_values,
-                function_types
+                /* Learning Note:
+                    The context is used to hold and manage various LLVM **objects and data structures**.
+                    The builder is used to construct **LLVM instructions** within a basic block.
+                    A module is a container for **LLVM functions and global variables**.
+                    LLVM values or variables.
+                */
+                LLVMGeneratorLocal
+                {
+                    context: Context::create(),
+                    module: Self::context.create_module(module_identifier),
+                    builder: Self::context.create_builder(),
+                    named_variables: HashMap::new(),
+                    function_types: HashMap::new()
+                }
             }
-        }
     }
 
     pub fn get_module_as_string(&self) -> String {
-        unsafe {
-            return CStr::from_ptr(LLVMPrintModuleToString(self.module)).to_str().unwrap().to_string();
-        }
+        self.module.to_string()
     }
 }
 
-impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst
+impl<'ctx> IRGenerator<LLVMGeneratorLocal<'ctx>, InkwellType> for GenericAst
 {
     /*
         Learning Notes:
@@ -68,22 +77,26 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst
             Versioning is used to keep track of the different values of a variable.
             In other words, there is no way to change an SSA value.
     */
-    unsafe fn generate(&self, context: &mut LLVMGeneratorContext) -> LLVMValueRef {
+    unsafe fn generate(&self, gen_local: &mut LLVMGeneratorLocal) -> InkwellType {
+        let f32_type = gen_local.context.f32_type();
+
+
         match self {
             GenericAst::NumberExprAst {number} => {
-                LLVMConstReal(LLVMBFloatTypeInContext(context.context), *number)
+                f32_type.const_float(*number) // Limitation 1
             },
             GenericAst::VariableExprAst {name} => {
-                if let Some(value) = context.named_values.get(name) {
+                if let Some(value) = gen_local.named_variables.get(name) {
                     *value
                 } else {
-                    panic!("Unknown variable name: {}", name);
+                    panic_with_reason!("Cannot refer to unknown variable: {}", name);
                 }
             },
             GenericAst::BinaryExprAst {op, lhs, rhs} => {
-                let lhs_ir = lhs.generate(context);
-                let rhs_ir = rhs.generate(context);
+                let lhs_ir = lhs.generate(gen_local);
+                let rhs_ir = rhs.generate(gen_local);
 
+                // TODO (safe) assert the types ?
                 if SYMBOL_OP_CHARS.contains(op) {
                     match op {
                         '+' => {
@@ -93,30 +106,30 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst
                                 The builder keeps track of the current insertion point in the basic block and
                                 is responsible for generating and appending the LLVM instruction to the block.
                             */
-                            LLVMBuildFAdd(context.builder, lhs_ir, rhs_ir, "addtmp\0".as_ptr() as *const i8)
+                            gen_local.builder.build_float_add(lhs_ir, rhs_ir, "add")
                         },
                         '-' => {
-                            LLVMBuildFSub(context.builder, lhs_ir, rhs_ir, "subtmp\0".as_ptr() as *const i8)
+                            gen_local.builder.build_float_sub(lhs_ir, rhs_ir, "sub")
                         },
                         '*' => {
-                            LLVMBuildFMul(context.builder, lhs_ir, rhs_ir, "multmp\0".as_ptr() as *const i8)
+                            gen_local.builder.build_float_mul(lhs_ir, rhs_ir, "mul")
                         },
                         '/' => {
-                            LLVMBuildFDiv(context.builder, lhs_ir, rhs_ir, "divtmp\0".as_ptr() as *const i8)
+                            gen_local.builder.build_float_div(lhs_ir, rhs_ir, "div")
                         },
                         '>' => {
-                            LLVMBuildFCmp(context.builder, LLVMRealOGT, lhs_ir, rhs_ir, "cmpgt\0".as_ptr() as *const i8)
+                            gen_local.builder.build_float_compare(FloatPredicate::OGT, lhs_ir, rhs_ir, "gt")
                         },
                         '<' => {
-                            LLVMBuildFCmp(context.builder, LLVMRealOLT, lhs_ir, rhs_ir, "cmplt\0".as_ptr() as *const i8)
+                            gen_local.builder.build_float_compare(FloatPredicate::OLT, lhs_ir, rhs_ir, "lt")
                         },
                         _ => {
-                            panic!("Implementation missing for operator {}", op)
+                            panic_with_reason!("Cannot do computation with a non-arithmetic operator {}", op)
                         }
                     }
                 }
                 else {
-                    panic!("Unknown operator {}", op)
+                    panic_with_reason!("Cannot do computation with an unknown operator {}", op)
                 }
             },
             GenericAst::CallExprAst {callee, args} => {

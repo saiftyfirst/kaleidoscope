@@ -11,11 +11,7 @@ pub mod syntax {
     pub mod vocabulary;
 }
 
-pub mod codegen {
-    pub mod ir_generator;
-    pub mod llvm_generator;
-}
-
+pub mod codegen;
 pub mod utils {
     pub mod display;
 }
