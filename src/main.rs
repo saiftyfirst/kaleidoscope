@@ -1,6 +1,5 @@
 use std::io::{self, Write};
 use std::ffi::{CStr};
-
 use llvm_sys::core::LLVMPrintValueToString;
 
 use kaleidoscope::parse::parser::*;

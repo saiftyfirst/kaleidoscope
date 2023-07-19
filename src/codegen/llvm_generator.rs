@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::ffi::{CStr};
+use std::os::raw::{c_char};
 use llvm_sys::analysis::{LLVMVerifierFailureAction, LLVMVerifyFunction};
 
 // llvm-sys
@@ -14,12 +16,16 @@ pub struct LLVMGeneratorContext {
     context: LLVMContextRef,
     module: LLVMModuleRef,
     builder: LLVMBuilderRef,
-    named_values: HashMap<String, LLVMValueRef>
+    named_values: HashMap<String, LLVMValueRef>,
+    function_types: HashMap<String, LLVMTypeRef>
 }
 
-impl LLVMGeneratorContext {
-    pub fn new() -> LLVMGeneratorContext {
-        unsafe {
+impl LLVMGeneratorContext
+{
+    pub fn new() -> LLVMGeneratorContext
+    {
+        unsafe
+            {
             /* Learning Note:
                 The context is used to hold and manage various LLVM **objects and data structures**.
                 The builder is used to construct **LLVM instructions** within a basic block.
@@ -28,20 +34,31 @@ impl LLVMGeneratorContext {
             */
             let context = LLVMContextCreate();
             let builder = LLVMCreateBuilderInContext(context);
-            let module = LLVMModuleCreateWithNameInContext("default_module".as_ptr() as *const i8, context);
+            let module = LLVMModuleCreateWithNameInContext(
+                "default_module\0".as_ptr() as *const i8, context);
             let named_values = HashMap::new();
+            let function_types = HashMap::new();
 
-            LLVMGeneratorContext {
+            LLVMGeneratorContext
+            {
                 context,
                 module,
                 builder,
-                named_values
+                named_values,
+                function_types
             }
+        }
+    }
+
+    pub fn get_module_as_string(&self) -> String {
+        unsafe {
+            return CStr::from_ptr(LLVMPrintModuleToString(self.module)).to_str().unwrap().to_string();
         }
     }
 }
 
-impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
+impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst
+{
     /*
         Learning Notes:
         - Single Static Assignment (SSA)
@@ -54,7 +71,7 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
     unsafe fn generate(&self, context: &mut LLVMGeneratorContext) -> LLVMValueRef {
         match self {
             GenericAst::NumberExprAst {number} => {
-                LLVMConstReal(LLVMBFloatType(), *number)
+                LLVMConstReal(LLVMBFloatTypeInContext(context.context), *number)
             },
             GenericAst::VariableExprAst {name} => {
                 if let Some(value) = context.named_values.get(name) {
@@ -76,22 +93,22 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
                                 The builder keeps track of the current insertion point in the basic block and
                                 is responsible for generating and appending the LLVM instruction to the block.
                             */
-                            LLVMBuildFAdd(context.builder, lhs_ir, rhs_ir, "addtmp".as_ptr() as *const i8)
+                            LLVMBuildFAdd(context.builder, lhs_ir, rhs_ir, "addtmp\0".as_ptr() as *const i8)
                         },
                         '-' => {
-                            LLVMBuildFSub(context.builder, lhs_ir, rhs_ir, "subtmp".as_ptr() as *const i8)
+                            LLVMBuildFSub(context.builder, lhs_ir, rhs_ir, "subtmp\0".as_ptr() as *const i8)
                         },
                         '*' => {
-                            LLVMBuildFMul(context.builder, lhs_ir, rhs_ir, "multmp".as_ptr() as *const i8)
+                            LLVMBuildFMul(context.builder, lhs_ir, rhs_ir, "multmp\0".as_ptr() as *const i8)
                         },
                         '/' => {
-                            LLVMBuildFDiv(context.builder, lhs_ir, rhs_ir, "divtmp".as_ptr() as *const i8)
+                            LLVMBuildFDiv(context.builder, lhs_ir, rhs_ir, "divtmp\0".as_ptr() as *const i8)
                         },
                         '>' => {
-                            LLVMBuildFCmp(context.builder, LLVMRealOGT, lhs_ir, rhs_ir, "cmpgt".as_ptr() as *const i8)
+                            LLVMBuildFCmp(context.builder, LLVMRealOGT, lhs_ir, rhs_ir, "cmpgt\0".as_ptr() as *const i8)
                         },
                         '<' => {
-                            LLVMBuildFCmp(context.builder, LLVMRealOLT, lhs_ir, rhs_ir, "cmplt".as_ptr() as *const i8)
+                            LLVMBuildFCmp(context.builder, LLVMRealOLT, lhs_ir, rhs_ir, "cmplt\0".as_ptr() as *const i8)
                         },
                         _ => {
                             panic!("Implementation missing for operator {}", op)
@@ -114,76 +131,88 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst {
                 }
 
                 let mut generated_args = Vec::new();
+
+                // let mut type_arr: [LLVMTypeRef; 2] = [LLVMBFloatTypeInContext(context.context), LLVMBFloatTypeInContext(context.context)];
+                // let _params = LLVMGetParamTypes(LLVMTypeOf(func), type_arr.as_mut_ptr());
+
                 for arg in args.iter() {
+                    println!("Generated arg: {:?}", arg);
                     generated_args.push(arg.generate(context));
                 }
 
+                let function_type = *context.function_types.get(callee).unwrap();
+
                 LLVMBuildCall2(context.builder,
-                               LLVMTypeOf(func),
+                               function_type,
                                func,
                                generated_args.as_mut_ptr(),
                                call_arg_count,
-                               "calltmp".as_ptr() as *const i8)
+                               "calltmp\0".as_ptr() as *const i8)
             },
             GenericAst::FunctionAst {proto, body} => {
                 let proto_unboxed = &**proto;
 
-                if let GenericAst::PrototypeAst { name, args} = proto_unboxed {
-                    let mut func_proto = LLVMGetNamedFunction(context.module,
-                                                              name.as_ptr() as *const i8);
+                if let GenericAst::PrototypeAst { name, args : _} = proto_unboxed {
+                    let mut func_proto = LLVMGetNamedFunction(
+                        context.module,
+                        name.as_ptr() as *const i8);
                     if func_proto.is_null() {
                         func_proto = proto.generate(context);
                     }
 
                     // TODO (saif) check if null again ?!
                     // TODO (saif) check if empty ?!
+                    // let first_block = LLVMGetFirstBasicBlock(func_proto);
+                    // TODO (saif) check for redefinition ?
 
-                    let first_block = LLVMGetFirstBasicBlock(func_proto);
-                    if first_block.is_null() {
-                        let basic_block = LLVMAppendBasicBlockInContext(
-                            context.context,
-                            func_proto,
-                            "entry".as_ptr() as *const i8);
-                        LLVMPositionBuilderAtEnd(context.builder, basic_block);
+                    let basic_block = LLVMAppendBasicBlockInContext(
+                        context.context,
+                        func_proto,
+                        "entry\0".as_ptr() as *const i8);
+                    LLVMPositionBuilderAtEnd(context.builder, basic_block);
 
-                        context.named_values.clear();
-                        // Why are we adding the args to the named_values map?
-                        for (i, arg_name) in args.iter().enumerate() {
-                            let arg = LLVMGetParam(func_proto, i as u32);
-                            context.named_values.insert(arg_name.clone(), arg);
-                        }
-
-                        let body_ir = body.generate(context);
-                        // TODO (saif) optionals instead of nulls/panics?
-                        if !body_ir.is_null() {
-                            LLVMBuildRet(context.builder, body_ir);
-                            LLVMVerifyFunction(func_proto, LLVMVerifierFailureAction::LLVMPrintMessageAction);
-                        } else {
-                            //erase?
-                        }
-                        return func_proto;
-                    } else {
-                        panic!("Function {} redefinition is not allowed", name);
+                    // TODO (saif) consider clearing the named_values map ?
+                    //context.named_values.clear();
+                    for idx in 0..LLVMCountParams(func_proto)  {
+                        let param = LLVMGetParam(func_proto, idx);
+                        let mut length: usize = 0;
+                        let name_buffer: *const c_char = unsafe { LLVMGetValueName2(param, &mut length) };
+                        LLVMGetValueName2(param, &mut length);
+                        context.named_values.insert(CStr::from_ptr(name_buffer).to_str().unwrap().to_string(), param);
                     }
+
+                    let body_ir = body.generate(context);
+                    // TODO (saif) optionals instead of nulls/panics?
+                    if !body_ir.is_null() {
+                        LLVMBuildRet(context.builder, body_ir);
+
+                        context.named_values.insert("cache\0".to_string(), body_ir);
+                        LLVMVerifyFunction(func_proto, LLVMVerifierFailureAction::LLVMPrintMessageAction);
+                    } else {
+                        //erase?
+                    }
+                    return func_proto;
                 } else {
                     panic!("Expected Prototype Ast!");
                 }
             },
             GenericAst::PrototypeAst {name, args} => {
                 // TODO (saif) remove assumption that our functions always return a float
-                let return_type = LLVMBFloatType();
-                let mut arg_types = std::vec![LLVMBFloatType(); args.len()];
+                let return_type = LLVMBFloatTypeInContext(context.context);
+                let mut arg_types = std::vec![LLVMBFloatTypeInContext(context.context); args.len()];
 
                 /* Learning Note:
                     the prototype with name is not registered in the module's symbol table
                     until the function is defined.
                 */
+                let function_type = LLVMFunctionType(return_type,
+                                                     arg_types.as_mut_ptr(),
+                                                     args.len() as u32,
+                                                     0);
+                context.function_types.insert(name.clone(), function_type);
                 let func_proto = LLVMAddFunction(context.module,
                                                  name.as_ptr() as *const i8,
-                                                 LLVMFunctionType(return_type,
-                                                                  arg_types.as_mut_ptr(),
-                                                                  args.len() as u32,
-                                                                  0));
+                                                 function_type);
 
                 // set the names of the variables
                 for (idx, arg) in args.iter().enumerate() {
