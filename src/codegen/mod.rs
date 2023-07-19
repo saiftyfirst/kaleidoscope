@@ -1,7 +1,3 @@
-pub mod ir_generator;
-pub mod llvm_generator;
-pub mod llvm_generation_alt;
-
 pub trait CodeGenerator {
     type Item;
     type AstContainer: IntoIterator<Item=Self::Item>;
@@ -23,3 +19,10 @@ impl<Generator: CodeGenerator> Compiler<Generator> {
         self.generator.generate(asts)
     }
 }
+
+pub trait IRGenerator<C, T> {
+    unsafe fn generate(&self, context: &mut C) -> T;
+}
+
+pub mod llvm_generator;
+pub mod llvm_generator_v2;
