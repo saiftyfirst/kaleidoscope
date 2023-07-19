@@ -8,7 +8,7 @@ use llvm_sys::prelude::*;
 use llvm_sys::core::*;
 use llvm_sys::LLVMRealPredicate::{LLVMRealOGT, LLVMRealOLT};
 
-use crate::codegen::ir_generator::IRGenerator;
+use crate::codegen::IRGenerator;
 use crate::syntax::ast::*;
 use crate::syntax::vocabulary::SYMBOL_OP_CHARS;
 
