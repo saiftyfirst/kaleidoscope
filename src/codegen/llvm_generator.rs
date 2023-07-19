@@ -140,6 +140,7 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst
                 // LLVMConstReal(LLVMBFloatTypeInContext(context.context), 2.0)
 
                 let fftype = LLVMFunctionType(LLVMFloatType(), [LLVMFloatType()].as_mut_ptr(), 1, 0);
+                // let fftype = LLVMGetElementType(LLVMTypeOf(func));
 
                 LLVMBuildCall2(context.builder,
                                fftype,
@@ -183,7 +184,7 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst
                     let body_ir = body.generate(context);
                     // TODO (saif) optionals instead of nulls/panics?
                     if !body_ir.is_null() {
-                        // LLVMBuildRet(context.builder, body_ir);
+                        LLVMBuildRet(context.builder, body_ir);
 
                         context.named_values.insert("cache\0".to_string(), body_ir);
                         LLVMVerifyFunction(func_proto, LLVMVerifierFailureAction::LLVMPrintMessageAction);

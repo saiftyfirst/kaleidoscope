@@ -72,13 +72,13 @@ mod tests {
         let mut llvm_context = create_code_generator();
         let ast_foo = parse_source_to_ast(
             r###"
-                def foo(a) a*2
+                def foo(a, b) a*b
             "###
         );
 
         let ast_bar = parse_source_to_ast(
             r###"
-                def bar(b) 2*foo(b)
+                def bar(a, b, c) c*foo(a, b)
             "###
         );
 
