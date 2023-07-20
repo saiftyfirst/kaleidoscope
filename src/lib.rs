@@ -1,5 +1,7 @@
 extern crate core;
 
+pub mod error;
+
 pub mod parse {
     pub mod parser;
     pub mod lexer;

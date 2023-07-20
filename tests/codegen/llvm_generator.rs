@@ -3,7 +3,7 @@ mod tests {
     use llvm_sys::core::*;
     use std::ffi::{CStr};
 
-    use kaleidoscope::codegen::ir_generator::IRGenerator;
+    use kaleidoscope::codegen::IRGenerator;
     use kaleidoscope::parse::parser::*;
     use kaleidoscope::codegen::llvm_generator::*;
     use kaleidoscope::syntax::ast::GenericAst;
