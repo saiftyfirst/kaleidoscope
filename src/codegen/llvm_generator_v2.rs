@@ -1,41 +1,29 @@
 use std::collections::HashMap;
-use std::ffi::{CStr};
-use std::os::raw::{c_char};
-use llvm_sys::analysis::{LLVMVerifierFailureAction, LLVMVerifyFunction};
 
-// llvm-sys
-use llvm_sys::prelude::*;
-use llvm_sys::core::*;
-use llvm_sys::LLVMRealPredicate::{LLVMRealOGT, LLVMRealOLT};
+use inkwell::context::Context;
+use inkwell::module::Module;
+use inkwell::builder::Builder;
+use inkwell::values::{BasicValue, AnyValueEnum, FloatMathValue, AnyValue};
+use inkwell::{FloatPredicate};
 
 use crate::codegen::IRGenerator;
 use crate::syntax::ast::*;
 use crate::syntax::vocabulary::SYMBOL_OP_CHARS;
-
-// Generation 2
-use inkwell::context::Context;
-use inkwell::module::Module;
-use inkwell::builder::Builder;
-use inkwell::values::FloatValue;
-use inkwell::{FloatPredicate};
-
-macro_rules! panic_with_reason {
-    ($reason:expr, $($arg:tt)*) => ({
-        panic!(concat!("IR Generation Failed: ", $reason), $($arg)*);
-    });
-}
-
-enum InkwellType {
-    FloatValue,
-}
+use crate::error::{Error, PrefixedError};
 
 struct LLVMGeneratorLocal<'ctx> {
     context: Context,
     module: Module<'ctx>,
     builder: Builder<'ctx>,
 
-    named_variables: HashMap<&'ctx str, InkwellType>,
-    function_types: HashMap<&'ctx str, LLVMTypeRef>
+    /*
+        Learning Note on lifetimes:
+        In the line below, 'ctx is essentially imposing that both &str and &AnyValueEnum
+        elements stored in the HashMap live at least as long as LLVMGeneratorLocal. AnyValueEnum
+        stores a reference as well and hence must be passed the same lifetime in order to trickle down
+        the lifetime imposition to the underlying reference
+    */
+    variable_references: HashMap<String, AnyValueEnum<'ctx>>,
 }
 
 impl<'ctx> LLVMGeneratorLocal<'ctx>
@@ -50,14 +38,12 @@ impl<'ctx> LLVMGeneratorLocal<'ctx>
                     A module is a container for **LLVM functions and global variables**.
                     LLVM values or variables.
                 */
-                LLVMGeneratorLocal
-                {
-                    context: Context::create(),
-                    module: Self::context.create_module(module_identifier),
-                    builder: Self::context.create_builder(),
-                    named_variables: HashMap::new(),
-                    function_types: HashMap::new()
-                }
+                let context = Context::create();
+                let module = context.create_module(module_identifier);
+                let builder = context.create_builder();
+                let variable_references = HashMap::new();
+
+                LLVMGeneratorLocal { context, module, builder, variable_references }
             }
     }
 
@@ -66,7 +52,7 @@ impl<'ctx> LLVMGeneratorLocal<'ctx>
     }
 }
 
-impl<'ctx> IRGenerator<LLVMGeneratorLocal<'ctx>, InkwellType> for GenericAst
+impl<'ctx> IRGenerator<LLVMGeneratorLocal<'ctx>, Result<AnyValueEnum<'ctx>, Error>> for GenericAst
 {
     /*
         Learning Notes:
@@ -77,24 +63,26 @@ impl<'ctx> IRGenerator<LLVMGeneratorLocal<'ctx>, InkwellType> for GenericAst
             Versioning is used to keep track of the different values of a variable.
             In other words, there is no way to change an SSA value.
     */
-    unsafe fn generate(&self, gen_local: &mut LLVMGeneratorLocal) -> InkwellType {
-        let f32_type = gen_local.context.f32_type();
+    // unsafe fn generate(&self, context: &mut C) -> T;
 
-
+    unsafe fn generate(&self, generator_local: &mut LLVMGeneratorLocal) -> Result<AnyValueEnum<'ctx>, Error> {
+        let f32_type = generator_local.context.f32_type();
         match self {
             GenericAst::NumberExprAst {number} => {
-                f32_type.const_float(*number) // Limitation 1
+                Ok(f32_type.const_float(*number).as_any_value_enum()) // Limitation 1
             },
             GenericAst::VariableExprAst {name} => {
-                if let Some(value) = gen_local.named_variables.get(name) {
-                    *value
+                if let Some(value) = generator_local.variable_references.get(name) {
+                    Ok(*value) // Learning Note: since AnyValueEnum derives copy, this is a copy by default and not a move
                 } else {
-                    panic_with_reason!("Cannot refer to unknown variable: {}", name);
+                    Err(Error::new(format!("Cannot refer to unknown variable '{}'", name)))
+                    // Err(self.error(format!("Cannot refer to unknown variable '{}'", name)))
                 }
             },
-            GenericAst::BinaryExprAst {op, lhs, rhs} => {
-                let lhs_ir = lhs.generate(gen_local);
-                let rhs_ir = rhs.generate(gen_local);
+            GenericAst::BinaryExprAst { op, lhs, rhs} => {
+                // TODO (safe) this into may panic
+                let lhs_ir = lhs.generate(generator_local)?.into_float_value();
+                let rhs_ir = rhs.generate(generator_local)?.into_float_value();
 
                 // TODO (safe) assert the types ?
                 if SYMBOL_OP_CHARS.contains(op) {
@@ -106,135 +94,103 @@ impl<'ctx> IRGenerator<LLVMGeneratorLocal<'ctx>, InkwellType> for GenericAst
                                 The builder keeps track of the current insertion point in the basic block and
                                 is responsible for generating and appending the LLVM instruction to the block.
                             */
-                            gen_local.builder.build_float_add(lhs_ir, rhs_ir, "add")
+                            let float_add = generator_local.builder.build_float_add(lhs_ir, rhs_ir, "_fadd");
+                            Ok(float_add.as_any_value_enum())
                         },
                         '-' => {
-                            gen_local.builder.build_float_sub(lhs_ir, rhs_ir, "sub")
+                            let float_sub = generator_local.builder.build_float_sub(lhs_ir, rhs_ir, "_fsub");
+                            Ok(float_sub.as_any_value_enum())
                         },
                         '*' => {
-                            gen_local.builder.build_float_mul(lhs_ir, rhs_ir, "mul")
+                            let float_mul = generator_local.builder.build_float_mul(lhs_ir, rhs_ir, "_fmul");
+                            Ok(float_mul.as_any_value_enum())
                         },
                         '/' => {
-                            gen_local.builder.build_float_div(lhs_ir, rhs_ir, "div")
+                            let float_div = generator_local.builder.build_float_div(lhs_ir, rhs_ir, "_fdiv");
+                            Ok(float_div.as_any_value_enum())
                         },
                         '>' => {
-                            gen_local.builder.build_float_compare(FloatPredicate::OGT, lhs_ir, rhs_ir, "gt")
+                            let float_gt = generator_local.builder.build_float_compare(FloatPredicate::OGT, lhs_ir, rhs_ir, "_fgt");
+                            Ok(float_gt.as_any_value_enum())
                         },
                         '<' => {
-                            gen_local.builder.build_float_compare(FloatPredicate::OLT, lhs_ir, rhs_ir, "lt")
+                            let float_lt = generator_local.builder.build_float_compare(FloatPredicate::OLT, lhs_ir, rhs_ir, "_flt");
+                            Ok(float_lt.as_any_value_enum())
                         },
                         _ => {
-                            panic_with_reason!("Cannot do computation with a non-arithmetic operator {}", op)
+                            Err(Error::new(format!("Cannot do computation with a non-arithmetic operator {}", op)))
+                            // Err(self.error(format!("Cannot do computation with a non-arithmetic operator {}", op)))
                         }
                     }
                 }
                 else {
-                    panic_with_reason!("Cannot do computation with an unknown operator {}", op)
+                    Err(Error::new(format!("Cannot do computation with an unknown operator {}", op)))
+                    // TODO TODO TODO TODO (!!!CRITICAL)
+                    // Err(self.error(format!("Cannot do computation with an unknown operator {}", op)))
                 }
             },
             GenericAst::CallExprAst {callee, args} => {
-                let func = LLVMGetNamedFunction(context.module, callee.as_ptr() as *const i8);
-                if func.is_null() {
-                    panic!("Unknown function referenced {}", callee);
+                let function_option = generator_local.module.get_function(callee);
+
+                if let Some(function) = function_option {
+                    if function.count_params() != args.len() as u32 {
+                        return Err(Error::new(format!("Cannot call function {} with {} parameters (requires {}).", args.len(), callee, function.count_params())));
+                        // Err(self.error(format!("Cannot call function {} with {} parameters (requires {}).", args.len(), callee, function.count_params())))
+                    }
+                    let generated_args = args.iter().map(|arg| arg.generate(generator_local)).collect();
+                    // TODO TODO TODO TODO (!!!CRITICAL)
+                    // generator_local.builder.build_call(function, generated_args, format!("{}_call", callee))
+                    Err(Error::new(format!("Cannot refer to undefined function {}", callee)))
+                    // Err(self.error(format!("Cannot refer to undefined function {}", callee)))
+
+                } else {
+                    Err(Error::new(format!("Cannot refer to undefined function {}", callee)))
+                    // Err(self.error(format!("Cannot refer to undefined function {}", callee)))
                 }
-
-                let call_arg_count = LLVMCountParams(func);
-                if (call_arg_count as usize) != args.len() {
-                    panic!("Function {} called with unexpected number of arguments", callee);
-                }
-
-                let mut generated_args = Vec::new();
-
-                // let mut type_arr: [LLVMTypeRef; 2] = [LLVMBFloatTypeInContext(context.context), LLVMBFloatTypeInContext(context.context)];
-                // let _params = LLVMGetParamTypes(LLVMTypeOf(func), type_arr.as_mut_ptr());
-
-                for arg in args.iter() {
-                    println!("Generated arg: {:?}", arg);
-                    generated_args.push(arg.generate(context));
-                }
-
-                let function_type = *context.function_types.get(callee).unwrap();
-
-                LLVMBuildCall2(context.builder,
-                               function_type,
-                               func,
-                               generated_args.as_mut_ptr(),
-                               call_arg_count,
-                               "calltmp\0".as_ptr() as *const i8)
             },
             GenericAst::FunctionAst {proto, body} => {
-                let proto_unboxed = &**proto;
+                let prototype_ast = &**proto;
 
-                if let GenericAst::PrototypeAst { name, args : _} = proto_unboxed {
-                    let mut func_proto = LLVMGetNamedFunction(
-                        context.module,
-                        name.as_ptr() as *const i8);
-                    if func_proto.is_null() {
-                        func_proto = proto.generate(context);
-                    }
+                if let GenericAst::PrototypeAst { name, args : _} = prototype_ast {
+                    let mut function_option = generator_local.module.get_function(name);
+                    let function = match function_option {
+                        Some(function) => function,
+                        None => prototype_ast.generate(generator_local)?.into_function_value()
+                    };
 
-                    // TODO (saif) check if null again ?!
-                    // TODO (saif) check if empty ?!
-                    // let first_block = LLVMGetFirstBasicBlock(func_proto);
-                    // TODO (saif) check for redefinition ?
-
-                    let basic_block = LLVMAppendBasicBlockInContext(
-                        context.context,
-                        func_proto,
-                        "entry\0".as_ptr() as *const i8);
-                    LLVMPositionBuilderAtEnd(context.builder, basic_block);
-
-                    // TODO (saif) consider clearing the named_values map ?
-                    //context.named_values.clear();
-                    for idx in 0..LLVMCountParams(func_proto)  {
-                        let param = LLVMGetParam(func_proto, idx);
-                        let mut length: usize = 0;
-                        let name_buffer: *const c_char = unsafe { LLVMGetValueName2(param, &mut length) };
-                        LLVMGetValueName2(param, &mut length);
-                        context.named_values.insert(CStr::from_ptr(name_buffer).to_str().unwrap().to_string(), param);
-                    }
-
-                    let body_ir = body.generate(context);
-                    // TODO (saif) optionals instead of nulls/panics?
-                    if !body_ir.is_null() {
-                        LLVMBuildRet(context.builder, body_ir);
-
-                        context.named_values.insert("cache\0".to_string(), body_ir);
-                        LLVMVerifyFunction(func_proto, LLVMVerifierFailureAction::LLVMPrintMessageAction);
-                    } else {
-                        //erase?
-                    }
-                    return func_proto;
+                    let basic_block = generator_local.context.append_basic_block(function, "_entry");
+                    generator_local.builder.position_at_end(basic_block);
+                    let body_ir = body.generate(generator_local)?;
+                    // TODO (saif) remove assumption that functions cannot return nulls
+                    generator_local.builder.build_return(Some(&body_ir))
                 } else {
-                    panic!("Expected Prototype Ast!");
+                    Err(self.error(format!("Cannot generate IR for faulty function prototype -- {}", prototype_ast)))
                 }
             },
             GenericAst::PrototypeAst {name, args} => {
-                // TODO (saif) remove assumption that our functions always return a float
-                let return_type = LLVMBFloatTypeInContext(context.context);
-                let mut arg_types = std::vec![LLVMBFloatTypeInContext(context.context); args.len()];
+                // TODO (saif) remove assumption that our functions always take floats and returns a float
+                let function_args = std::vec![f32_type.into(), args.len()];
+                let function_signature = f32_type.fn_type(function_args.into(), false);
 
                 /* Learning Note:
                     the prototype with name is not registered in the module's symbol table
                     until the function is defined.
                 */
-                let function_type = LLVMFunctionType(return_type,
-                                                     arg_types.as_mut_ptr(),
-                                                     args.len() as u32,
-                                                     0);
-                context.function_types.insert(name.clone(), function_type);
-                let func_proto = LLVMAddFunction(context.module,
-                                                 name.as_ptr() as *const i8,
-                                                 function_type);
-
-                // set the names of the variables
-                for (idx, arg) in args.iter().enumerate() {
-                    LLVMSetValueName2(LLVMGetParam(func_proto, idx as u32),
-                                      arg.as_ptr() as *const i8,
-                                      arg.len() as usize)
+                // context.function_types.insert(name.clone(), function_type);
+                let function = generator_local.module.add_function(name, function_signature, None);
+                // set the names of the variables and keep copies of the parameter references
+                for (param, identifier) in  function.get_params().iter().zip(args.iter()) {
+                    param.set_name(identifier.as_str());
+                    generator_local.variable_references.insert(format!("{}_{}", name, identifier), param)
                 }
-                func_proto
+                function
             }
         }
     }
 }
+
+// impl<'ctx> PrefixedError for dyn IRGenerator<LLVMGeneratorLocal<'ctx>, Result<AnyValueEnum<'ctx>, Error>> {
+//     fn get_prefix(&self) -> &str {
+//         "LLVM IR Generation Failed: "
+//     }
+// }
