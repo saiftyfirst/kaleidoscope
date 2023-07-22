@@ -11,9 +11,10 @@ A run through https://llvm.org/docs/tutorial/MyFirstLanguageFrontend in Rust.
 
 ### Limitations
 1. All integral types are float types
-2. 
+2. Usage of unwraps in the Lexer/Parser (TODO: remove this pattern - Handle None cases explicitly)
 3. Can only use floats as arguments and return types
 4. All functions return a mandatory float
+5. 
 
 ### Ideas
 1. Pipeline Infrastructure (Stage 1 -> Stage 2 -> ... -> Stage N) 

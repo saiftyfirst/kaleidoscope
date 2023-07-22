@@ -4,6 +4,12 @@ use std::fmt::Formatter;
 #[derive(Debug)]
 pub struct Error(String);
 
+impl Error {
+   pub fn new(error_msg: String) -> Error {
+       Error(error_msg)
+   }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {

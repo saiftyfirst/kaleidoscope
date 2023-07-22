@@ -21,7 +21,7 @@ impl<'a> Parser<'a> {
                 Token::TokEof => Err(self.error("EOF")),
                 Token::TokDef => self.parse_function_definition(),
                 Token::TokExtern => self.parse_extern_call_expression(),
-                _default => self.parse_abstract_expression()
+                _default => self.parse_expression()
             }
     }
 
