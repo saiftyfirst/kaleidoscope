@@ -14,6 +14,7 @@ pub mod syntax {
 pub mod codegen {
     pub mod ir_generator;
     pub mod llvm_generator;
+    pub mod llvm_generation_alt;
 }
 
 pub mod utils {

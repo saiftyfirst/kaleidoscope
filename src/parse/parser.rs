@@ -32,29 +32,29 @@ impl<'a> Parser<'a> {
     pub fn build_next_ast(&mut self) -> Result<GenericAst, ParseError> {
             return match self.peek_lexer() {
                 Token::TokEof => Err(ParseError("EOF".to_string())),
-                Token::TokDef => self.parse_function_definition(),
-                Token::TokExtern => self.parse_extern_call_expression(),
-                _default => self.parse_abstract_expression()
+                Token::TokDef => Ok(GenericAst::FuncAst(self.parse_function_definition()?)),
+                Token::TokExtern => Ok(GenericAst::FuncAst(self.parse_extern_call_expression()?)),
+                _default => Ok(GenericAst::ExprAst(self.parse_abstract_expression()?))
             }
     }
 
-    fn parse_function_definition(&mut self) -> Result<GenericAst, ParseError> {
+    fn parse_function_definition(&mut self) -> Result<FuncAst, ParseError> {
         self.lexer.pop(); // pop def
         // TODO (saif) when parse_prototype works but not parse_abstract_expression, the error is obscure!
-        Ok(GenericAst::FunctionAst{ proto: Box::from(self.parse_prototype()?), body: Box::from(self.parse_abstract_expression()?) })
+        Ok(FuncAst::Function{ proto: Box::from(self.parse_prototype()?), body: Box::from(self.parse_abstract_expression()?) })
     }
 
-    fn parse_extern_call_expression(&mut self) -> Result<GenericAst, ParseError> {
+    fn parse_extern_call_expression(&mut self) -> Result<FuncAst, ParseError> {
         self.lexer.pop(); // pop extern
         self.parse_prototype()
     }
 
-    fn parse_abstract_expression(&mut self) -> Result<GenericAst, ParseError> {
+    fn parse_abstract_expression(&mut self) -> Result<ExprAst, ParseError> {
         let lhs = self.parse_single_expression_unit()?;
         self.parse_op_and_rhs(lhs, 0)
     }
 
-    fn parse_prototype(&mut self) -> Result<GenericAst, ParseError> {
+    fn parse_prototype(&mut self) -> Result<FuncAst, ParseError> {
         if let Token::TokIdentifier(fn_ident) = self.lexer.pop() {
             let mut args = Vec::new();
 
@@ -76,13 +76,13 @@ impl<'a> Parser<'a> {
             if self.lexer.pop() != Token::TokSymbol(')') {
                 return Err(ParseError("Expected prototype AST to end with ')'.".to_string()));
             }
-            Ok(GenericAst::PrototypeAst { name: fn_ident.to_string(), args })
+            Ok(FuncAst::Prototype { name: fn_ident.to_string(), args })
         } else {
             return Err(ParseError("Attempted to parse non-prototype AST as prototype.".to_string()));
         }
     }
 
-    fn parse_op_and_rhs(&mut self, mut lhs: GenericAst, min_precedence: i8) -> Result<GenericAst, ParseError> {
+    fn parse_op_and_rhs(&mut self, mut lhs: ExprAst, min_precedence: i8) -> Result<ExprAst, ParseError> {
             while self.peek_lexer().is_tok_symbol() { // next operator
                 let precedence = get_token_precedence(&self.peek_lexer());
                 if precedence >= min_precedence {
@@ -97,7 +97,7 @@ impl<'a> Parser<'a> {
                             }
                             // equal condition ?
                             }
-                        lhs = GenericAst::BinaryExprAst { op, lhs: Box::new(lhs), rhs: Box::new(rhs) };
+                        lhs = ExprAst::BinaryExpr { op, lhs: Box::new(lhs), rhs: Box::new(rhs) };
                     }
                 } else {
                     break;
@@ -106,7 +106,7 @@ impl<'a> Parser<'a> {
         Ok(lhs)
     }
 
-    fn parse_single_expression_unit(&mut self) -> Result<GenericAst, ParseError> {
+    fn parse_single_expression_unit(&mut self) -> Result<ExprAst, ParseError> {
         match self.peek_lexer() {
             Token::TokNumber(_val) => self.parse_number_expression(),
             Token::TokIdentifier(_val) => self.parse_variable_or_call_expression(),
@@ -115,17 +115,17 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_number_expression(&mut self) -> Result<GenericAst, ParseError> {
+    fn parse_number_expression(&mut self) -> Result<ExprAst, ParseError> {
         if let Token::TokNumber(val) = self.pop_lexer() {
-            return Ok(GenericAst::NumberExprAst { number: val });
+            return Ok(ExprAst::NumberExpr { number: val });
         }
         Err(ParseError("Attempted to parse non-number EXPR as number.".to_string()))
     }
 
-    fn parse_variable_or_call_expression(&mut self) -> Result<GenericAst, ParseError> {
+    fn parse_variable_or_call_expression(&mut self) -> Result<ExprAst, ParseError> {
         if let Token::TokIdentifier(identifier) = self.pop_lexer() {
             if Token::TokSymbol('(') != *self.peek_lexer() {
-                return Ok(GenericAst::VariableExprAst { name: identifier });
+                return Ok(ExprAst::VariableExpr { name: identifier });
             }
 
             self.pop_lexer(); // pop '('
@@ -147,13 +147,13 @@ impl<'a> Parser<'a> {
                     }
                 }
             }
-            Ok(GenericAst::CallExprAst {callee: identifier.to_string(), args })
+            Ok(ExprAst::CallExpr {callee: identifier.to_string(), args })
         } else {
             return Err(ParseError("Attempted to incorrectly parse EXPR as variable or call expression.".to_string()));
         }
     }
 
-    fn parse_enclosed_expression(&mut self) -> Result<GenericAst, ParseError> {
+    fn parse_enclosed_expression(&mut self) -> Result<ExprAst, ParseError> {
         self.pop_lexer(); // pop (
         let res = self.parse_abstract_expression();
         self.pop_lexer(); // pop )
