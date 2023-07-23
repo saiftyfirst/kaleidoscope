@@ -26,7 +26,7 @@ impl Driver {
 
             let mut parser = Parser::new(&prompt);
             let ast = parser.build_next_ast().unwrap();
-            println!("{}", ast);
+            // println!("{}", ast);
 
             unsafe {
                 let llvm_value_ref = ast.generate(&mut llvm_generator_context);

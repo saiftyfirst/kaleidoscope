@@ -1,6 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use kaleidoscope::syntax::ast::GenericAst;
+    use kaleidoscope::syntax::ast::GenericAst::*;
+    use kaleidoscope::syntax::ast::FuncAst::*;
+    use kaleidoscope::syntax::ast::ExprAst::*;
+
     use kaleidoscope::parse::parser::*;
 
     /*
@@ -34,7 +37,7 @@ mod tests {
         r###"
             extern atan2()
         "###, 1 =>
-        vec![GenericAst::PrototypeAst { name: "atan2".to_string(), args: vec![] }]
+        vec![FuncAst(Prototype { name: "atan2".to_string(), args: vec![] })]
     );
 
     base_passing_parser_test!(
@@ -42,7 +45,7 @@ mod tests {
         r###"
             extern atan2(arg, arg2)
         "###, 1 =>
-        vec![GenericAst::PrototypeAst { name: "atan2".to_string(), args: vec!["arg".to_string(), "arg2".to_string()] }]
+        vec![FuncAst(Prototype { name: "atan2".to_string(), args: vec!["arg".to_string(), "arg2".to_string()] })]
     );
 
     base_passing_parser_test!(
@@ -50,7 +53,7 @@ mod tests {
         r###"
             x + 1
         "###, 1 =>
-        vec![GenericAst::BinaryExprAst { op: '+', lhs: Box::new(GenericAst::VariableExprAst { name: "x".to_string() }), rhs: Box::new(GenericAst::NumberExprAst { number: 1.0 }) }]
+        vec![ExprAst(BinaryExpr { op: '+', lhs: Box::new(VariableExpr { name: "x".to_string() }), rhs: Box::new(NumberExpr { number: 1.0 }) })]
     );
 
     base_passing_parser_test!(
@@ -59,11 +62,19 @@ mod tests {
             x + 2 -4 * q / y
         "###, 1 =>
         vec![
-            GenericAst::BinaryExprAst {
+            ExprAst(BinaryExpr {
                 op: '-',
-                lhs: Box::new(Parser::new("x + 2").build_next_ast().unwrap()),
-                rhs: Box::new(Parser::new("4 * q / y").build_next_ast().unwrap())
-            }
+                lhs: if let ExprAst(expr) = Parser::new("x + 2").build_next_ast().unwrap() {
+                    Box::new(expr)
+                } else {
+                    panic!("")
+                },
+                rhs: if let ExprAst(expr) = Parser::new("4 * q / y").build_next_ast().unwrap() {
+                    Box::new(expr)
+                } else {
+                    panic!("")
+                }
+            })
         ]
     );
 
@@ -73,15 +84,23 @@ mod tests {
             x + 2 -4 * q / y + 2
         "###, 1 =>
         vec![
-            GenericAst::BinaryExprAst {
+            ExprAst(BinaryExpr {
                 op: '+',
-                lhs: Box::new(GenericAst::BinaryExprAst {
+                lhs: Box::new(BinaryExpr {
                     op: '-',
-                    lhs: Box::new(Parser::new("x + 2").build_next_ast().unwrap()),
-                    rhs: Box::new(Parser::new("4 * q / y").build_next_ast().unwrap())
+                    lhs: if let ExprAst(expr) = Parser::new("x + 2").build_next_ast().unwrap() {
+                        Box::new(expr)
+                    } else {
+                        panic!("")
+                    },
+                    rhs: if let ExprAst(expr) = Parser::new("4 * q / y").build_next_ast().unwrap() {
+                        Box::new(expr)
+                    } else {
+                        panic!("")
+                    }
                 }),
-                rhs: Box::new(GenericAst::NumberExprAst { number: 2.0 })
-          }
+                rhs: Box::new(NumberExpr { number: 2.0 })
+          })
         ]
     );
 
@@ -91,15 +110,23 @@ mod tests {
             x / (2 - 4 + q) / y
         "###, 1 =>
         vec![
-            GenericAst::BinaryExprAst {
+            ExprAst(BinaryExpr {
                 op: '/',
-                lhs: Box::new(GenericAst::BinaryExprAst {
+                lhs: Box::new(BinaryExpr {
                     op: '/',
-                    lhs:Box::new(GenericAst::VariableExprAst { name: "x".to_string() }),
-                    rhs: Box::new(Parser::new("2 - 4 + q").build_next_ast().unwrap())
+                    lhs: if let ExprAst(expr) = Parser::new("x").build_next_ast().unwrap() {
+                        Box::new(expr)
+                    } else {
+                        panic!("")
+                    },
+                    rhs: if let ExprAst(expr) = Parser::new("2 -4 + q").build_next_ast().unwrap() {
+                        Box::new(expr)
+                    } else {
+                        panic!("")
+                    }
                 }),
-                rhs: Box::new(GenericAst::VariableExprAst { name: "y".to_string() })
-            }
+                rhs: Box::new(VariableExpr { name: "y".to_string() })
+            })
         ]
     );
 
@@ -110,16 +137,24 @@ mod tests {
             extern atan2(arg, arg2)
         "###, 2 =>
         vec![
-            GenericAst::BinaryExprAst {
+            ExprAst(BinaryExpr {
                 op: '/',
-                lhs: Box::new(GenericAst::BinaryExprAst {
+                lhs: Box::new(BinaryExpr {
                     op: '*',
-                    lhs:Box::new(GenericAst::VariableExprAst { name: "x".to_string() }),
-                    rhs: Box::new(Parser::new("(z * q)").build_next_ast().unwrap())
+                    lhs: if let ExprAst(expr) = Parser::new("x").build_next_ast().unwrap() {
+                        Box::new(expr)
+                    } else {
+                        panic!("")
+                    },
+                    rhs: if let ExprAst(expr) = Parser::new("(z * q)").build_next_ast().unwrap() {
+                        Box::new(expr)
+                    } else {
+                        panic!("")
+                    }
                 }),
-                rhs: Box::new(GenericAst::VariableExprAst { name: "y".to_string() })
-            },
-            GenericAst::PrototypeAst { name: "atan2".to_string(), args: vec!["arg".to_string(), "arg2".to_string()] }
+                rhs: Box::new(VariableExpr { name: "y".to_string() })
+            }),
+            FuncAst(Prototype { name: "atan2".to_string(), args: vec!["arg".to_string(), "arg2".to_string()] })
         ]
     );
 
@@ -130,10 +165,10 @@ mod tests {
                 arg1
         "###, 1 =>
         vec![
-            GenericAst::FunctionAst {
-                proto: Box::new(GenericAst::PrototypeAst { name: "my_tan".to_string(), args: vec!["arg1".to_string()] }),
-                body: Box::new(GenericAst::VariableExprAst { name: "arg1".to_string() })
-            }
+            FuncAst(Function {
+                proto: Box::new(Prototype { name: "my_tan".to_string(), args: vec!["arg1".to_string()] }),
+                body: Box::new(VariableExpr { name: "arg1".to_string() })
+            })
         ]
     );
 
@@ -144,14 +179,14 @@ mod tests {
                 arg1 + arg2
         "###, 1 =>
         vec![
-            GenericAst::FunctionAst {
-                proto: Box::new(GenericAst::PrototypeAst { name: "my_tan".to_string(), args: vec!["arg1".to_string(), "arg2".to_string()] }),
-                body: Box::new(GenericAst::BinaryExprAst {
+            FuncAst(Function {
+                proto: Box::new(Prototype { name: "my_tan".to_string(), args: vec!["arg1".to_string(), "arg2".to_string()] }),
+                body: Box::new(BinaryExpr {
                     op: '+',
-                    lhs:Box::new(GenericAst::VariableExprAst { name: "arg1".to_string() }),
-                    rhs:Box::new(GenericAst::VariableExprAst { name: "arg2".to_string() }),
+                    lhs:Box::new(VariableExpr { name: "arg1".to_string() }),
+                    rhs:Box::new(VariableExpr { name: "arg2".to_string() }),
                 }),
-            }
+            })
         ]
     );
 }
