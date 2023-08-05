@@ -10,6 +10,6 @@ impl CodeGenerator for CodeGeneratorLLVM {
     type AstContainer = Vec<GenericAst>;
 
     fn generate(&self, asts: Self::AstContainer) -> Result<(), String> {
-        Err("".to_string())
+        Err("Not Implemented".to_string())
     }
 }

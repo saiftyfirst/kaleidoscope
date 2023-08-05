@@ -14,18 +14,60 @@ pub enum ExprAst {
     CallExpr { callee: String, args: Vec<ExprAst> }
 }
 
-#[repr(i8)]
 #[derive(PartialEq, Debug, Clone)]
-pub enum FuncAst {
-    Prototype { name: String, args: Vec<String> },
-    Function { proto: Box<FuncAst>, body: Box<ExprAst> }
+pub struct Prototype {
+    name: String,
+    args: Vec<String>
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct Function {
+    proto: Prototype,
+    body: Box<ExprAst>
 }
 
 #[repr(i8)]
 #[derive(PartialEq, Debug, Clone)]
 pub enum GenericAst {
     ExprAst(ExprAst),
-    FuncAst(FuncAst)
+    PrototypeAst(Prototype),
+    FuncAst(Function)
+}
+
+impl Prototype
+{
+    pub fn new(name: String, args: Vec<String>) -> Prototype
+    {
+        Prototype { name, args }
+    }
+
+    pub fn get_name(&self) -> &str
+    {
+        self.name.as_str()
+    }
+
+    pub fn get_args(&self) -> &[String]
+    {
+        self.args.as_slice()
+    }
+}
+
+impl Function
+{
+    pub fn new(proto: Prototype, body: Box<ExprAst>) -> Function
+    {
+        Function { proto, body }
+    }
+
+    pub fn get_proto(&self) -> &Prototype
+    {
+        &self.proto
+    }
+
+    pub fn get_body(&self) -> &ExprAst
+    {
+        &self.body
+    }
 }
 
 impl std::fmt::Display for ExprAst {
@@ -42,17 +84,16 @@ impl std::fmt::Display for ExprAst {
     }
 }
 
-impl std::fmt::Display for FuncAst {
+impl std::fmt::Display for Prototype {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            FuncAst::Prototype { name, args } => {
-                write!(f, "def {}(", name)?;
-                display::structured_slice_print(args, f)
-            },
-            FuncAst::Function { proto, body } => {
-                write!(f, "{}\n", proto)?;
-                write!(f, "\t{}", body)
-            }
-        }
+        write!(f, "def {}(", self.name)?;
+        display::structured_slice_print(self.args.as_slice(), f)
+    }
+}
+
+impl<'ctx> std::fmt::Display for Function {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}\n", self.proto)?;
+        write!(f, "\t{}", self.body)
     }
 }

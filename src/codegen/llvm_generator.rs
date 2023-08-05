@@ -154,81 +154,71 @@ impl IRGenerator<LLVMGeneratorContext, LLVMValueRef> for GenericAst
                 }
             },
             GenericAst::FuncAst(func) => {
-                match func {
-                    FuncAst::Function {proto, body} => {
-                        let proto_unboxed = &**proto;
-
-                        if let FuncAst::Prototype { name, args : _} = proto_unboxed {
-                            let mut func_proto = LLVMGetNamedFunction(
-                                context.module,
-                                name.as_ptr() as *const i8);
-                            if func_proto.is_null() {
-                                func_proto = GenericAst::FuncAst((**proto).clone()).generate(context);
-                            }
-
-                            // TODO (saif) check if null again ?!
-                            // TODO (saif) check if empty ?!
-                            // let first_block = LLVMGetFirstBasicBlock(func_proto);
-                            // TODO (saif) check for redefinition ?
-
-                            let basic_block = LLVMAppendBasicBlockInContext(
-                                context.context,
-                                func_proto,
-                                "entry\0".as_ptr() as *const i8);
-                            LLVMPositionBuilderAtEnd(context.builder, basic_block);
-
-                            // TODO (saif) consider clearing the named_values map ?
-                            //context.named_values.clear();
-                            for idx in 0..LLVMCountParams(func_proto)  {
-                                let param = LLVMGetParam(func_proto, idx);
-                                let mut length: usize = 0;
-                                let name_buffer: *const c_char = unsafe { LLVMGetValueName2(param, &mut length) };
-                                LLVMGetValueName2(param, &mut length);
-                                context.named_values.insert(CStr::from_ptr(name_buffer).to_str().unwrap().to_string(), param);
-                            }
-
-                            let body_ir = GenericAst::ExprAst((**body).clone()).generate(context);
-                            // TODO (saif) optionals instead of nulls/panics?
-                            if !body_ir.is_null() {
-                                LLVMBuildRet(context.builder, body_ir);
-
-                                context.named_values.insert("cache\0".to_string(), body_ir);
-                                LLVMVerifyFunction(func_proto, LLVMVerifierFailureAction::LLVMPrintMessageAction);
-                            } else {
-                                //erase?
-                            }
-                            return func_proto;
-                        } else {
-                            panic!("Expected Prototype Ast!");
-                        }
-                    },
-                    FuncAst::Prototype {name, args} => {
-                        // TODO (saif) remove assumption that our functions always return a float
-                        let return_type = LLVMBFloatTypeInContext(context.context);
-                        let mut arg_types = std::vec![LLVMBFloatTypeInContext(context.context); args.len()];
-
-                        /* Learning Note:
-                            the prototype with name is not registered in the module's symbol table
-                            until the function is defined.
-                        */
-                        let function_type = LLVMFunctionType(return_type,
-                                                             arg_types.as_mut_ptr(),
-                                                             args.len() as u32,
-                                                             0);
-                        context.function_types.insert(name.clone(), function_type);
-                        let func_proto = LLVMAddFunction(context.module,
-                                                         name.as_ptr() as *const i8,
-                                                         function_type);
-
-                        // set the names of the variables
-                        for (idx, arg) in args.iter().enumerate() {
-                            LLVMSetValueName2(LLVMGetParam(func_proto, idx as u32),
-                                              arg.as_ptr() as *const i8,
-                                              arg.len() as usize)
-                        }
-                        func_proto
-                    }
+                let mut func_proto = LLVMGetNamedFunction(
+                    context.module,
+                    func.get_proto().get_name().as_ptr() as *const i8);
+                if func_proto.is_null() {
+                    func_proto = GenericAst::PrototypeAst(func.get_proto().clone()).generate(context);
                 }
+
+                // TODO (saif) check if null again ?!
+                // TODO (saif) check if empty ?!
+                // let first_block = LLVMGetFirstBasicBlock(func_proto);
+                // TODO (saif) check for redefinition ?
+
+                let basic_block = LLVMAppendBasicBlockInContext(
+                    context.context,
+                    func_proto,
+                    "entry\0".as_ptr() as *const i8);
+                LLVMPositionBuilderAtEnd(context.builder, basic_block);
+
+                // TODO (saif) consider clearing the named_values map ?
+                //context.named_values.clear();
+                for idx in 0..LLVMCountParams(func_proto)  {
+                    let param = LLVMGetParam(func_proto, idx);
+                    let mut length: usize = 0;
+                    let name_buffer: *const c_char = unsafe { LLVMGetValueName2(param, &mut length) };
+                    LLVMGetValueName2(param, &mut length);
+                    context.named_values.insert(CStr::from_ptr(name_buffer).to_str().unwrap().to_string(), param);
+                }
+
+                let body_ir = GenericAst::ExprAst(func.get_body().clone()).generate(context);
+                // TODO (saif) optionals instead of nulls/panics?
+                if !body_ir.is_null() {
+                    LLVMBuildRet(context.builder, body_ir);
+
+                    context.named_values.insert("cache\0".to_string(), body_ir);
+                    LLVMVerifyFunction(func_proto, LLVMVerifierFailureAction::LLVMPrintMessageAction);
+                } else {
+                    //erase?
+                }
+                return func_proto;
+            },
+            GenericAst::PrototypeAst(prototype) => {
+                    // TODO (saif) remove assumption that our functions always return a float
+                    let return_type = LLVMBFloatTypeInContext(context.context);
+                    let mut arg_types = std::vec![LLVMBFloatTypeInContext(context.context); prototype.get_args().len()];
+
+                    /* Learning Note:
+                        the prototype with name is not registered in the module's symbol table
+                        until the function is defined.
+                    */
+                    let function_type = LLVMFunctionType(return_type,
+                                                         arg_types.as_mut_ptr(),
+                                                         prototype.get_args().len() as u32,
+                                                         0);
+                    context.function_types.insert(prototype.get_name().to_string(), function_type);
+                    let func_proto = LLVMAddFunction(context.module,
+                                                     prototype.get_name().as_ptr() as *const i8,
+                                                     function_type);
+
+                    // set the names of the variables
+                    for (idx, arg) in prototype.get_args().iter().enumerate() {
+                        LLVMSetValueName2(LLVMGetParam(func_proto, idx as u32),
+                                          arg.as_ptr() as *const i8,
+                                          arg.len() as usize)
+                    }
+                func_proto
             }
         }
     }

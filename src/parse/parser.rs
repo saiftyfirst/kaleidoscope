@@ -19,18 +19,18 @@ impl<'a> Parser<'a> {
             return match self.peek_lexer() {
                 Token::TokEof => Err(Error::new("EOF".to_string())),
                 Token::TokDef => Ok(GenericAst::FuncAst(self.parse_function_definition()?)),
-                Token::TokExtern => Ok(GenericAst::FuncAst(self.parse_extern_call_expression()?)),
+                Token::TokExtern => Ok(GenericAst::PrototypeAst(self.parse_extern_call_expression()?)),
                 _default => Ok(GenericAst::ExprAst(self.parse_abstract_expression()?))
             }
     }
 
-    fn parse_function_definition(&mut self) -> Result<FuncAst, Error> {
+    fn parse_function_definition(&mut self) -> Result<Function, Error> {
         self.lexer.pop(); // pop def
         // TODO (saif) when parse_prototype works but not parse_abstract_expression, the error is obscure!
-        Ok(FuncAst::Function{ proto: Box::from(self.parse_prototype()?), body: Box::from(self.parse_abstract_expression()?) })
+        Ok(Function::new(self.parse_prototype()?,Box::from(self.parse_abstract_expression()?)))
     }
 
-    fn parse_extern_call_expression(&mut self) -> Result<FuncAst, Error> {
+    fn parse_extern_call_expression(&mut self) -> Result<Prototype, Error> {
         self.lexer.pop(); // pop extern
         self.parse_prototype()
     }
@@ -40,7 +40,7 @@ impl<'a> Parser<'a> {
         self.parse_op_and_rhs(lhs, 0)
     }
 
-    fn parse_prototype(&mut self) -> Result<FuncAst, Error> {
+    fn parse_prototype(&mut self) -> Result<Prototype, Error> {
         if let Token::TokIdentifier(fn_ident) = self.lexer.pop() {
             let mut args = Vec::new();
 
@@ -62,7 +62,7 @@ impl<'a> Parser<'a> {
             if self.lexer.pop() != Token::TokSymbol(')') {
                 return Err(self.error("Expected prototype AST to end with ')'."));
             }
-            Ok(FuncAst::Prototype { name: fn_ident.to_string(), args })
+            Ok(Prototype::new(fn_ident.to_string(), args))
         } else {
             return Err(self.error("Attempted to parse non-prototype AST as prototype."));
         }

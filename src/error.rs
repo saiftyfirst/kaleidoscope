@@ -12,12 +12,6 @@ impl Error {
     }
 }
 
-impl Error {
-   pub fn new(error_msg: String) -> Error {
-       Error(error_msg)
-   }
-}
-
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "Custom error: {}", self.error_msg)
